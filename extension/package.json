@@ -217,7 +217,7 @@
     "vscode:prepublish": "npm run package-ext",
     "compile": "tsc -p ./",
     "lint": "tsc --noEmit",
-    "package": "vsce package",
+    "package": "vsce package --no-dependencies",
     "package-ext": "npm run compile && npm run bundle",
     "bundle": "esbuild ./out/extension.js --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
     "watch": "tsc -watch -p ./",
