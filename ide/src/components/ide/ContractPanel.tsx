@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Rocket, Copy, ExternalLink, UserPlus, ShieldAlert, Key, Trash2 } from "lucide-react";
-import { useIdentityStore, Identity } from "@/store/useIdentityStore";
+import { useIdentityStore } from "@/store/useIdentityStore";
 import {
   Select,
   SelectContent,
@@ -22,7 +22,7 @@ export function ContractPanel({ contractId, onInvoke }: ContractPanelProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [newNickname, setNewNickname] = useState("");
 
-  const { identities, activeIdentity, setActiveIdentity, generateNewIdentity, deleteIdentity } = useIdentityStore();
+  const { identities, activeContext, setActiveContext, generateNewIdentity, deleteIdentity } = useIdentityStore();
 
   const handleGenerate = async () => {
     if (!newNickname.trim()) return;
@@ -139,12 +139,6 @@ export function ContractPanel({ contractId, onInvoke }: ContractPanelProps) {
                           <Copy className="h-2.5 w-2.5" />
                         </button>
                       </div>
-                      <div className="flex items-center justify-between gap-2 overflow-hidden">
-                        <span className="text-[9px] text-muted-foreground font-mono truncate">••••••••••••••••</span>
-                        <button onClick={() => copyToClipboard(id.secretKey, "Secret Key")} className="shrink-0 p-0.5 hover:bg-muted rounded text-muted-foreground">
-                          <Copy className="h-2.5 w-2.5" />
-                        </button>
-                      </div>
                     </div>
                   </div>
                 ))
@@ -163,14 +157,20 @@ export function ContractPanel({ contractId, onInvoke }: ContractPanelProps) {
             <div className="space-y-1.5">
               <label className="text-[10px] md:text-xs text-muted-foreground font-mono block">Signing Identity</label>
               <Select
-                value={activeIdentity?.publicKey || "none"}
-                onValueChange={(val) => setActiveIdentity(identities.find(i => i.publicKey === val) || null)}
+                value={activeContext?.type === "local-keypair" ? activeContext.publicKey : "wallet"}
+                onValueChange={(val) =>
+                  setActiveContext(
+                    val === "wallet"
+                      ? { type: "web-wallet" }
+                      : { type: "local-keypair", publicKey: val }
+                  )
+                }
               >
                 <SelectTrigger className="h-8 text-xs bg-muted border-border">
                   <SelectValue placeholder="Select identity" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none" disabled>Select account...</SelectItem>
+                  <SelectItem value="wallet">Browser Wallet</SelectItem>
                   {identities.map(id => (
                     <SelectItem key={id.publicKey} value={id.publicKey}>
                       {id.nickname} ({id.publicKey.substring(0, 4)}...{id.publicKey.substring(52)})
@@ -215,13 +215,13 @@ export function ContractPanel({ contractId, onInvoke }: ContractPanelProps) {
               />
               <button
                 onClick={() => onInvoke(fnName, args)}
-                disabled={!contractId || !activeIdentity}
+                disabled={!contractId || !activeContext}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 transition-colors"
               >
                 <Rocket className="h-3.5 w-3.5" />
                 Invoke
               </button>
-              {!activeIdentity && identities.length > 0 && (
+              {!activeContext && identities.length > 0 && (
                 <p className="text-[9px] text-destructive text-center italic mt-1">Select an identity to invoke</p>
               )}
               {identities.length === 0 && (

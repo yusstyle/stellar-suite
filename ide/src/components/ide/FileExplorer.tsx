@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { DragEvent, useState } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -27,10 +27,10 @@ interface FileExplorerProps {
   onDeleteNode: (path: string[]) => void;
   onRenameNode: (path: string[], newName: string) => void;
   isDragActive?: boolean;
-  onDragEnter?: (event: React.DragEvent<HTMLDivElement>) => void;
-  onDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
-  onDragLeave?: (event: React.DragEvent<HTMLDivElement>) => void;
-  onDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnter?: (event: DragEvent<HTMLDivElement>) => void;
+  onDragOver?: (event: DragEvent<HTMLDivElement>) => void;
+  onDragLeave?: (event: DragEvent<HTMLDivElement>) => void;
+  onDrop?: (event: DragEvent<HTMLDivElement>) => void;
 }
 
 function InlineInput({
@@ -314,13 +314,24 @@ export function FileExplorer({
   onCreateFolder,
   onDeleteNode,
   onRenameNode,
+  isDragActive = false,
+  onDragEnter,
+  onDragOver,
+  onDragLeave,
+  onDrop,
 }: FileExplorerProps) {
   const [creatingRoot, setCreatingRoot] = useState<"file" | "folder" | null>(
     null
   );
 
   return (
-    <div className="h-full bg-sidebar flex flex-col">
+    <div
+      className={`h-full bg-sidebar flex flex-col ${isDragActive ? "ring-2 ring-primary/60 ring-inset" : ""}`}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-sidebar-border flex items-center justify-between">
         <span>Explorer</span>
         <div className="flex gap-0.5">
