@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { FileNode, sampleContracts } from '@/lib/sample-contracts';
+import { NETWORK_CONFIG, NetworkKey, DEFAULT_CUSTOM_RPC } from '@/lib/networkConfig';
 
 interface TabInfo {
   path: string[];
@@ -13,7 +14,10 @@ interface FileStore {
   activeTabPath: string[];
   unsavedFiles: Set<string>;
 
-  network: string;
+  network: NetworkKey;
+  horizonUrl: string;
+  networkPassphrase: string;
+  customRpcUrl: string;
   identities: Array<{ id: string; name: string; publicKey: string }>;
   activeIdentityId: string | null;
   tokenBalances: Record<string, string>;
@@ -24,7 +28,10 @@ interface FileStore {
   setActiveTabPath: (path: string[]) => void;
   setOpenTabs: (tabs: TabInfo[]) => void;
 
-  setNetwork: (network: string) => void;
+  setNetwork: (network: NetworkKey) => void;
+  setHorizonUrl: (url: string) => void;
+  setNetworkPassphrase: (passphrase: string) => void;
+  setCustomRpcUrl: (url: string) => void;
   setActiveIdentity: (identityId: string | null) => void;
   setTokenBalances: (balances: Record<string,string>) => void;
   setHydrationComplete: (ready: boolean) => void;
@@ -59,6 +66,38 @@ const findParent = (nodes: FileNode[], pathParts: string[]): FileNode[] | null =
   return parent?.children ?? null;
 };
 
+const getHorizonBaseUrl = (network: string): string | null => {
+  switch (network) {
+    case "testnet":
+      return "https://horizon-testnet.stellar.org";
+    case "futurenet":
+      return "https://horizon-futurenet.stellar.org";
+    case "mainnet":
+      return "https://horizon.stellar.org";
+    default:
+      return null;
+  }
+};
+
+const fetchNativeXlmBalance = async (publicKey: string, network: string): Promise<number> => {
+  const baseUrl = getHorizonBaseUrl(network);
+  if (!baseUrl) return 0;
+
+  const res = await fetch(`${baseUrl}/accounts/${encodeURIComponent(publicKey)}`);
+  if (res.status === 404) return 0;
+
+  if (!res.ok) {
+    throw new Error(`Horizon request failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  const balances = (data?.balances ?? []) as Array<{ asset_type?: string; balance?: string }>;
+  const native = balances.find((b) => b.asset_type === "native");
+  const balStr = native?.balance ?? "0";
+  const balNum = Number(balStr);
+  return Number.isFinite(balNum) ? balNum : 0;
+};
+
 export const useFileStore = create<FileStore>()(
   persist(
     (set, get) => ({
@@ -68,6 +107,9 @@ export const useFileStore = create<FileStore>()(
       unsavedFiles: new Set<string>(),
 
       network: "testnet",
+      horizonUrl: NETWORK_CONFIG.testnet.horizon,
+      networkPassphrase: NETWORK_CONFIG.testnet.passphrase,
+      customRpcUrl: DEFAULT_CUSTOM_RPC,
       identities: [
         { id: "local-1", name: "Local Keypair 1", publicKey: "GDEXAMPLELOCAL1" },
         { id: "local-2", name: "Local Keypair 2", publicKey: "GDEXAMPLELOCAL2" },
@@ -80,7 +122,28 @@ export const useFileStore = create<FileStore>()(
       setActiveTabPath: (path) => set({ activeTabPath: path }),
       setOpenTabs: (tabs) => set({ openTabs: tabs }),
 
-      setNetwork: (network) => set({ network }),
+      setNetwork: (network) => {
+        const config = NETWORK_CONFIG[network] || NETWORK_CONFIG.testnet;
+        const customRpcUrl = get().customRpcUrl || DEFAULT_CUSTOM_RPC;
+        const horizonUrl = network === "local" ? customRpcUrl : config.horizon;
+        set({
+          network,
+          horizonUrl,
+          networkPassphrase: config.passphrase,
+        });
+
+        // Update balances after network switch.
+        get().refreshBalances();
+      },
+      setHorizonUrl: (url) => set({ horizonUrl: url }),
+      setNetworkPassphrase: (passphrase) => set({ networkPassphrase: passphrase }),
+      setCustomRpcUrl: (customRpcUrl) => {
+        set({ customRpcUrl });
+        if (get().network === "local") {
+          set({ horizonUrl: customRpcUrl });
+          get().refreshBalances();
+        }
+      },
       setActiveIdentity: (identityId) => set({ activeIdentityId: identityId }),
       setTokenBalances: (balances) => set({ tokenBalances: balances }),
       setHydrationComplete: (ready) => set({ hydrationComplete: ready }),
@@ -90,10 +153,17 @@ export const useFileStore = create<FileStore>()(
           set({ tokenBalances: {} });
           return;
         }
-        // Simulated RPC balance fetch (replace with real SDK call in production)
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        const fakeAmount = (1000 + Math.floor(Math.random() * 9000)).toString();
-        set({ tokenBalances: { XLM: `${fakeAmount}.00`, USDC: `${(Number(fakeAmount) / 100).toFixed(2)}` } });
+        try {
+          const xlm = await fetchNativeXlmBalance(activeIdentityId, network);
+          set({
+            tokenBalances: {
+              XLM: xlm.toFixed(2),
+            },
+          });
+        } catch {
+          // Don't hard-fail the IDE if Horizon is temporarily unavailable.
+          set({ tokenBalances: {} });
+        }
       },
 
       addTab: (path, name) => {
@@ -231,10 +301,18 @@ export const useFileStore = create<FileStore>()(
         network: state.network,
         activeIdentityId: state.activeIdentityId,
         identities: state.identities,
+        customRpcUrl: state.customRpcUrl,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Refresh balances after rehydration
+          const network = state.network || "testnet";
+          const config = NETWORK_CONFIG[network] || NETWORK_CONFIG.testnet;
+          state.setNetwork(network);
+
+          if (state.customRpcUrl) {
+            state.setCustomRpcUrl(state.customRpcUrl);
+          }
+
           state.refreshBalances().finally(() => {
             state.setHydrationComplete(true);
           });

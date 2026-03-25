@@ -1,4 +1,16 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { FileExplorer } from "@/components/ide/FileExplorer";
+import { EditorTabs } from "@/components/ide/EditorTabs";
+import CodeEditor from "@/components/editor/CodeEditor";
+import { Terminal, LogEntry } from "@/components/ide/Terminal";
+import { Toolbar } from "@/components/ide/Toolbar";
+import { ContractPanel } from "@/components/ide/ContractPanel";
+import { StatusBar } from "@/components/ide/StatusBar";
+import { IdentityCard } from "@/components/ide/IdentityCard";
+import { FileNode } from "@/lib/sample-contracts";
+import { useFileStore } from "@/store/useFileStore";
+import { useDiagnosticsStore } from "@/store/useDiagnosticsStore";
+import { parseMixedOutput } from "@/utils/cargoParser";
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -59,7 +71,10 @@ const Index = () => {
     renameNode,
     markSaved,
     network,
+    horizonUrl,
+    customRpcUrl,
     setNetwork,
+    setCustomRpcUrl,
   } = useFileStore();
 
   const { setDiagnostics, clearDiagnostics } = useDiagnosticsStore();
@@ -379,7 +394,12 @@ const Index = () => {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <ContractPanel contractId={contractId} onInvoke={handleInvoke} />
+              <div className="flex flex-col h-full">
+                <IdentityCard />
+                <div className="flex-1 overflow-y-auto">
+                  <ContractPanel contractId={contractId} onInvoke={handleInvoke} />
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -479,17 +499,14 @@ const Index = () => {
               <ContractPanel contractId={contractId} onInvoke={handleInvoke} />
             </div>
           )}
-          <div className="flex h-full flex-col border-l border-border bg-card">
+          <div className="flex flex-col bg-card border-l border-border h-full w-72">
+            <IdentityCard />
             <button
               onClick={() => setShowPanel(!showPanel)}
-              className="p-2 text-muted-foreground transition-colors hover:text-foreground"
-              title="Toggle Panel"
+              className="mt-auto p-2 text-muted-foreground hover:text-foreground transition-colors"
+              title="Toggle Interact Panel"
             >
-              {showPanel ? (
-                <PanelRightClose className="h-4 w-4" />
-              ) : (
-                <PanelRightOpen className="h-4 w-4" />
-              )}
+              {showPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
             </button>
           </div>
         </div>
@@ -501,6 +518,10 @@ const Index = () => {
           line={cursorPos.line}
           col={cursorPos.col}
           network={network}
+          horizonUrl={horizonUrl}
+          customRpcUrl={customRpcUrl}
+          onNetworkChange={setNetwork}
+          onCustomRpcUrlChange={setCustomRpcUrl}
           unsavedCount={unsavedFiles.size}
         />
       </div>
