@@ -6,6 +6,7 @@ import { Terminal, LogEntry } from "@/components/ide/Terminal";
 import { Toolbar } from "@/components/ide/Toolbar";
 import { ContractPanel } from "@/components/ide/ContractPanel";
 import { StatusBar } from "@/components/ide/StatusBar";
+import { IdentityCard } from "@/components/ide/IdentityCard";
 import { FileNode } from "@/lib/sample-contracts";
 import { useFileStore } from "@/store/useFileStore";
 import { useDiagnosticsStore } from "@/store/useDiagnosticsStore";
@@ -394,7 +395,12 @@ const Index = () => {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <ContractPanel contractId={contractId} onInvoke={handleInvoke} />
+              <div className="flex flex-col h-full">
+                <IdentityCard />
+                <div className="flex-1 overflow-y-auto">
+                  <ContractPanel contractId={contractId} onInvoke={handleInvoke} />
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -496,17 +502,14 @@ const Index = () => {
               <ContractPanel contractId={contractId} onInvoke={handleInvoke} />
             </div>
           )}
-          <div className="flex flex-col bg-card border-l border-border h-full">
+          <div className="flex flex-col bg-card border-l border-border h-full w-72">
+            <IdentityCard />
             <button
               onClick={() => setShowPanel(!showPanel)}
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-              title="Toggle Panel"
+              className="mt-auto p-2 text-muted-foreground hover:text-foreground transition-colors"
+              title="Toggle Interact Panel"
             >
-              {showPanel ? (
-                <PanelRightClose className="h-4 w-4" />
-              ) : (
-                <PanelRightOpen className="h-4 w-4" />
-              )}
+              {showPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
             </button>
           </div>
         </div>

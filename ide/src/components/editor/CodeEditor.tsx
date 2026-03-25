@@ -2,6 +2,7 @@ import React, { Suspense, useRef, useEffect } from 'react';
 import Editor, { OnMount, OnChange } from '@monaco-editor/react';
 import { useFileStore } from '@/store/useFileStore';
 import { useDiagnosticsStore } from '@/store/useDiagnosticsStore';
+import type { FileNode } from '@/lib/sample-contracts';
 import type * as Monaco from 'monaco-editor';
 
 interface CodeEditorProps {
@@ -17,7 +18,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 
   const activeFile = React.useMemo(() => {
-    const findNode = (nodes: any[], pathParts: string[]): any | null => {
+    const findNode = (nodes: FileNode[], pathParts: string[]): FileNode | null => {
       for (const node of nodes) {
         if (node.name === pathParts[0]) {
           if (pathParts.length === 1) return node;
