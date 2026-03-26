@@ -12,10 +12,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { TransactionResultsPane } from "@/components/ide/TransactionResultsPane";
 
 interface ContractPanelProps {
   contractId: string | null;
-  onInvoke: (fn: string, args: string) => void;
+  onInvoke: (fn: string, args: string) => Promise<void>;
 }
 
 export function ContractPanel({ contractId, onInvoke }: ContractPanelProps) {
@@ -27,6 +28,7 @@ export function ContractPanel({ contractId, onInvoke }: ContractPanelProps) {
   const [isResolvingAbi, setIsResolvingAbi] = useState(false);
   const [schemaPreview, setSchemaPreview] = useState("");
   const [schemaSource, setSchemaSource] = useState("");
+  const [isInvoking, setIsInvoking] = useState(false);
 
   const { identities, activeContext, setActiveContext, generateNewIdentity, deleteIdentity } = useIdentityStore();
   const { files, activeTabPath, horizonUrl, customRpcUrl, networkPassphrase, network } = useFileStore();
@@ -256,12 +258,22 @@ export function ContractPanel({ contractId, onInvoke }: ContractPanelProps) {
                 placeholder='["arg1", "arg2"]'
               />
               <button
-                onClick={() => onInvoke(fnName, args)}
-                disabled={!contractId || !activeContext}
+                onClick={async () => {
+                  try {
+                    setIsInvoking(true);
+                    await onInvoke(fnName, args);
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : "Invocation failed";
+                    toast.error(message);
+                  } finally {
+                    setIsInvoking(false);
+                  }
+                }}
+                disabled={!contractId || !activeContext || isInvoking}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 transition-colors"
               >
                 <Rocket className="h-3.5 w-3.5" />
-                Invoke
+                {isInvoking ? "Invoking..." : "Invoke"}
               </button>
               {!activeContext && identities.length > 0 && (
                 <p className="text-[9px] text-destructive text-center italic mt-1">Select an identity to invoke</p>
@@ -315,6 +327,7 @@ export function ContractPanel({ contractId, onInvoke }: ContractPanelProps) {
                 <Download className="h-3.5 w-3.5" />
                 Export JS Bindings
               </button>
+              <TransactionResultsPane />
               <p className="text-[10px] md:text-xs text-muted-foreground font-semibold uppercase tracking-wider">Resources</p>
               <a href="https://soroban.stellar.org/docs" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[10px] md:text-xs text-primary hover:underline">
                 <ExternalLink className="h-3 w-3" />

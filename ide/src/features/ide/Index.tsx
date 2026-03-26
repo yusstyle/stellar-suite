@@ -1,6 +1,7 @@
 "use client";
 
 import { DragEvent, useCallback, useEffect, useRef, useState } from "react";
+import { nativeToScVal } from "@stellar/stellar-sdk";
 import { FileExplorer } from "@/components/ide/FileExplorer";
 import { EditorTabs } from "@/components/ide/EditorTabs";
 import CodeEditor from "@/components/ide/CodeEditor";
@@ -13,12 +14,14 @@ import { SearchPane } from "@/components/ide/SearchPane";
 import { useIdentityStore } from "@/store/useIdentityStore";
 import { useFileStore } from "@/store/useFileStore";
 import { useDiagnosticsStore } from "@/store/useDiagnosticsStore";
+import { useTransactionResultsStore } from "@/store/useTransactionResultsStore";
 import { showCompilationFailedToast, showCompilationSuccessToast } from "@/lib/compilationToasts";
 import { DROP_LIMIT_BYTES, mapDroppedEntriesToTree, mergeFileNodes, readDropPayload } from "@/lib/file-drop";
 import { type NetworkKey } from "@/lib/networkConfig";
 import { FileNode } from "@/lib/sample-contracts";
 import { createStreamProcessor, readCompileResponse } from "@/utils/compileStream";
 import { parseMixedOutput } from "@/utils/cargoParser";
+import { decodeScValBase64 } from "@/utils/scValDecoder";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { DeploymentsView } from "@/components/ide/DeploymentsView";
 import { useDeployedContractsStore } from "@/store/useDeployedContractsStore";
@@ -38,6 +41,8 @@ import {
 } from "lucide-react";
 
 const COMPILE_API_URL = process.env.NEXT_PUBLIC_COMPILE_API_URL ?? "/api/compile";
+
+const createTxHash = () => crypto.randomUUID().replace(/-/g, "").slice(0, 64).toUpperCase();
 
 type BuildState = "idle" | "building" | "success" | "error";
 
@@ -258,19 +263,67 @@ const Index = () => {
     }, 1200);
   }, [appendTerminalOutput]);
 
+  const appendResultLog = useTransactionResultsStore((state) => state.appendLog);
+
   const handleInvoke = useCallback(
-    (fn: string, args: string) => {
-      setTerminalExpanded(true);
+    async (fn: string, args: string) => {
+      const start = performance.now();
+      const timestamp = new Date().toISOString();
       const signer =
         activeContext?.type === "web-wallet"
           ? "browser-wallet"
           : activeIdentity?.nickname ?? "anonymous";
+
+      setTerminalExpanded(true);
       appendTerminalOutput(`Invoking ${fn}(${args}) as ${signer}...\r\n`);
-      setTimeout(() => {
-        appendTerminalOutput('Result: ["Hello", "Dev"]\r\n');
-      }, 800);
+
+      try {
+        // Simulated invocation response — replace with real pipeline when available.
+        const simulatedScVal = nativeToScVal(["Hello", "Dev"]);
+        const resultScValBase64 = simulatedScVal.toXDR("base64");
+        const { value, error } = decodeScValBase64(resultScValBase64);
+        const txHash = createTxHash();
+
+        appendTerminalOutput(`Result: ${JSON.stringify(value ?? ["Hello", "Dev"])}\r\n`);
+        appendTerminalOutput(`Tx: ${txHash}\r\n`);
+
+        appendResultLog({
+          id: crypto.randomUUID(),
+          timestamp,
+          network: network as NetworkKey,
+          contractId,
+          fnName: fn,
+          argsJson: args,
+          status: "success",
+          txHash,
+          resultScValBase64,
+          decodedResult: value ?? null,
+          errorMessage: error ?? null,
+          durationMs: Math.round(performance.now() - start),
+          source: "simulate",
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Invocation failed";
+        appendTerminalOutput(`Invoke failed: ${message}\r\n`);
+        appendResultLog({
+          id: crypto.randomUUID(),
+          timestamp,
+          network: network as NetworkKey,
+          contractId,
+          fnName: fn,
+          argsJson: args,
+          status: "error",
+          txHash: null,
+          resultScValBase64: null,
+          decodedResult: null,
+          errorMessage: message,
+          durationMs: Math.round(performance.now() - start),
+          source: "simulate",
+        });
+        throw error;
+      }
     },
-    [activeContext, activeIdentity, appendTerminalOutput]
+    [activeContext, activeIdentity, appendResultLog, appendTerminalOutput, contractId, network]
   );
 
   const handleCreateFile = useCallback(
