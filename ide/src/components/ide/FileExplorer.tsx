@@ -10,6 +10,7 @@ import {
   Trash2,
   Pencil,
 } from "lucide-react";
+import { useWorkspaceStore } from "@/store/workspaceStore";
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -19,18 +20,7 @@ import {
 import { FileNode } from "@/lib/sample-contracts";
 
 interface FileExplorerProps {
-  files: FileNode[];
-  onFileSelect: (path: string[], file: FileNode) => void;
-  activeFilePath: string[];
-  onCreateFile: (parentPath: string[], name: string) => void;
-  onCreateFolder: (parentPath: string[], name: string) => void;
-  onDeleteNode: (path: string[]) => void;
-  onRenameNode: (path: string[], newName: string) => void;
-  isDragActive?: boolean;
-  onDragEnter?: (event: DragEvent<HTMLDivElement>) => void;
-  onDragOver?: (event: DragEvent<HTMLDivElement>) => void;
-  onDragLeave?: (event: DragEvent<HTMLDivElement>) => void;
-  onDrop?: (event: DragEvent<HTMLDivElement>) => void;
+  onFileSelect?: (path: string[], file: FileNode) => void;
 }
 
 function InlineInput({
@@ -307,27 +297,41 @@ function FileTreeItem({
 }
 
 export function FileExplorer({
-  files,
   onFileSelect,
-  activeFilePath,
-  onCreateFile,
-  onCreateFolder,
-  onDeleteNode,
-  onRenameNode,
-  isDragActive = false,
-  onDragEnter,
-  onDragOver,
-  onDragLeave,
-  onDrop,
 }: FileExplorerProps) {
+  const {
+    files,
+    activeTabPath,
+    createFile,
+    createFolder,
+    deleteNode,
+    renameNode,
+    addTab,
+    setMobilePanel,
+    isExplorerDragActive,
+    setTerminalOutput,
+    setTerminalExpanded,
+    setIsExplorerDragActive,
+  } = useWorkspaceStore();
+
   const [creatingRoot, setCreatingRoot] = useState<"file" | "folder" | null>(
     null
   );
 
+  const internalFileSelect = (path: string[], file: FileNode) => {
+    if (onFileSelect) {
+      onFileSelect(path, file);
+    } else {
+      if (file.type !== "file") return;
+      addTab(path, file.name);
+      setMobilePanel("none");
+    }
+  };
+
   return (
     <div
       id="tour-explorer"
-      className={`h-full bg-sidebar flex flex-col ${isDragActive ? "ring-2 ring-primary/60 ring-inset" : ""}`}
+      className={`h-full bg-sidebar flex flex-col ${isDragActive ? "ring-2 ring-primary/60 ring-inset" : ""}` ${isExplorerDragActive ? "ring-2 ring-primary/60 ring-inset" : ""}}
       onDragEnter={onDragEnter}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -359,8 +363,8 @@ export function FileExplorer({
             depth={0}
             placeholder={creatingRoot === "file" ? "filename.rs" : "folder_name"}
             onSubmit={(name) => {
-              if (creatingRoot === "file") onCreateFile([], name);
-              else onCreateFolder([], name);
+              if (creatingRoot === "file") createFile([], name);
+              else createFolder([], name);
               setCreatingRoot(null);
             }}
             onCancel={() => setCreatingRoot(null)}
@@ -373,12 +377,12 @@ export function FileExplorer({
             node={node}
             depth={0}
             path={[]}
-            onFileSelect={onFileSelect}
-            activeFilePath={activeFilePath}
-            onCreateFile={onCreateFile}
-            onCreateFolder={onCreateFolder}
-            onDeleteNode={onDeleteNode}
-            onRenameNode={onRenameNode}
+            onFileSelect={internalFileSelect}
+            activeFilePath={activeTabPath}
+            onCreateFile={createFile}
+            onCreateFolder={createFolder}
+            onDeleteNode={deleteNode}
+            onRenameNode={renameNode}
           />
         ))}
       </div>

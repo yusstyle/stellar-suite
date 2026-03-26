@@ -12,7 +12,7 @@ import { StatusBar } from "@/components/ide/StatusBar";
 import { SearchPane } from "@/components/ide/SearchPane";
 import { IdeShell } from "@/components/layout/IdeShell";
 import { useIdentityStore } from "@/store/useIdentityStore";
-import { useFileStore } from "@/store/useFileStore";
+import { useWorkspaceStore } from "@/store/workspaceStore";
 import { useDiagnosticsStore } from "@/store/useDiagnosticsStore";
 import { showCompilationFailedToast, showCompilationSuccessToast } from "@/lib/compilationToasts";
 import { DROP_LIMIT_BYTES, mapDroppedEntriesToTree, mergeFileNodes, readDropPayload } from "@/lib/file-drop";
@@ -78,25 +78,13 @@ const flattenProjectFiles = (nodes: FileNode[], parentPath: string[] = []) =>
   });
 
 const Index = () => {
-  const [terminalExpanded, setTerminalExpanded] = useState(true);
-  const [terminalOutput, setTerminalOutput] = useState("");
-  const [isCompiling, setIsCompiling] = useState(false);
-  const [contractId, setContractId] = useState<string | null>(null);
-  const [showExplorer, setShowExplorer] = useState(false);
-  const [showPanel, setShowPanel] = useState(false);
-  const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
-  const [saveStatus, setSaveStatus] = useState("");
-  const [mobilePanel, setMobilePanel] = useState<"none" | "explorer" | "interact" | "deployments" | "identities">("none");
-  const [isExplorerDragActive, setIsExplorerDragActive] = useState(false);
-  const [leftSidebarTab, setLeftSidebarTab] = useState<"explorer" | "deployments" | "identities" | "search">("explorer");
-  const dragDepthRef = useRef(0);
-
   const {
+    // File System
     files,
-    setFiles,
     openTabs,
     activeTabPath,
     unsavedFiles,
+    setFiles,
     setActiveTabPath,
     addTab,
     closeTab,
@@ -106,18 +94,50 @@ const Index = () => {
     renameNode,
     markSaved,
     updateFileContent,
+
+    // Network
     network,
     horizonUrl,
+    networkPassphrase,
     customRpcUrl,
     setNetwork,
+    setHorizonUrl,
+    setNetworkPassphrase,
     setCustomRpcUrl,
-  } = useFileStore();
+
+    // UI Layout
+    terminalExpanded,
+    terminalOutput,
+    isCompiling,
+    buildState,
+    contractId,
+    showExplorer,
+    showPanel,
+    cursorPos,
+    saveStatus,
+    mobilePanel,
+    isExplorerDragActive,
+    leftSidebarTab,
+    setTerminalExpanded,
+    setTerminalOutput,
+    setIsCompiling,
+    setBuildState,
+    setContractId,
+    setShowExplorer,
+    setShowPanel,
+    setCursorPos,
+    setSaveStatus,
+    setMobilePanel,
+    setIsExplorerDragActive,
+    setLeftSidebarTab,
+    appendTerminalOutput,
+  } = useWorkspaceStore();
 
   const { loadIdentities, activeContext, activeIdentity } = useIdentityStore();
   const { addContract } = useDeployedContractsStore();
-  const { setDiagnostics, clearDiagnostics } = useDiagnosticsStore();
+  const { setDiagnostics } = useDiagnosticsStore();
 
-  const [buildState, setBuildState] = useState<BuildState>("idle");
+  const dragDepthRef = useRef(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -141,11 +161,7 @@ const Index = () => {
     };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  const appendTerminalOutput = useCallback((chunk: string) => {
-    setTerminalOutput((prev) => prev + chunk);
-  }, []);
+  }, [setShowExplorer, setShowPanel]);
 
   const handleFileSelect = useCallback(
     (path: string[], file: FileNode) => {
@@ -164,16 +180,8 @@ const Index = () => {
   );
 
   const handleContentChange = useCallback((newContent: string) => {
-    const nextFiles = cloneFiles(files);
-    const file = findNode(nextFiles, activeTabPath);
-    if (file) {
-      file.content = newContent;
-      setFiles(nextFiles);
-      // Unsaved tracking is handled within the store via setUnsavedFiles usually, 
-      // but if not, we can manually update it here if necessary.
-      // Based on useFileStore, it uses unsavedFiles Set.
-    }
-  }, [activeTabPath, files, setFiles]);
+    updateFileContent(activeTabPath, newContent);
+  }, [activeTabPath, updateFileContent]);
 
   const handleSave = useCallback(() => {
     markSaved(activeTabPath);
@@ -289,27 +297,6 @@ const Index = () => {
     [activeContext, activeIdentity, appendTerminalOutput, network, customRpcUrl, horizonUrl, contractId]
   );
 
-  const handleCreateFile = useCallback(
-    (parent: string[], name: string) => {
-      createFile(parent, name);
-    },
-    [createFile]
-  );
-
-  const handleCreateFolder = useCallback(
-    (parent: string[], name: string) => {
-      createFolder(parent, name);
-    },
-    [createFolder]
-  );
-
-  const handleDeleteNode = useCallback(
-    (path: string[]) => {
-      deleteNode(path);
-    },
-    [deleteNode]
-  );
-
   const handleRenameNode = useCallback(
     (path: string[], newName: string) => {
       renameNode(path, newName);
@@ -372,7 +359,7 @@ const Index = () => {
         appendTerminalOutput(`Upload failed: ${message}\r\n`);
       }
     },
-    [appendTerminalOutput, files, setFiles]
+    [appendTerminalOutput, files, setFiles, setIsExplorerDragActive]
   );
 
   const getActiveContent = useCallback((): { content: string; language: string; fileId: string } => {
@@ -397,7 +384,7 @@ const Index = () => {
 
     window.addEventListener("ide:open-search", onOpenSearch);
     return () => window.removeEventListener("ide:open-search", onOpenSearch);
-  }, []);
+  }, [setLeftSidebarTab, setShowExplorer, setMobilePanel]);
 
   const { content, language, fileId } = getActiveContent();
 
@@ -453,20 +440,7 @@ const Index = () => {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <FileExplorer
-                files={files}
-                onFileSelect={handleFileSelect}
-                activeFilePath={activeTabPath}
-                onCreateFile={createFile}
-                onCreateFolder={createFolder}
-                onDeleteNode={deleteNode}
-                onRenameNode={renameNode}
-                isDragActive={isExplorerDragActive}
-                onDragEnter={handleExplorerDragEnter}
-                onDragOver={handleExplorerDragOver}
-                onDragLeave={handleExplorerDragLeave}
-                onDrop={handleExplorerDrop}
-              />
+              <FileExplorer />
             </div>
             <div className="flex-1 bg-background/60" onClick={() => setMobilePanel("none")} />
           </div>
@@ -540,20 +514,7 @@ const Index = () => {
                 >
                   <div className="h-full w-full overflow-hidden border-r border-border bg-sidebar">
                     {leftSidebarTab === "explorer" && (
-                      <FileExplorer
-                        files={files}
-                        onFileSelect={handleFileSelect}
-                        activeFilePath={activeTabPath}
-                        onCreateFile={createFile}
-                        onCreateFolder={createFolder}
-                        onDeleteNode={deleteNode}
-                        onRenameNode={renameNode}
-                        isDragActive={isExplorerDragActive}
-                        onDragEnter={handleExplorerDragEnter}
-                        onDragOver={handleExplorerDragOver}
-                        onDragLeave={handleExplorerDragLeave}
-                        onDrop={handleExplorerDrop}
-                      />
+                      <FileExplorer />
                     )}
                     {leftSidebarTab === "identities" && (
                       <IdentitiesView network={network} />
@@ -595,21 +556,9 @@ const Index = () => {
             <ResizablePanel id="main-content" order={2} minSize={30} className="flex flex-col min-w-0">
               <ResizablePanelGroup direction="vertical" autoSaveId="ide-editor-terminal">
                 <ResizablePanel id="editor" order={1} defaultSize={75} minSize={30} className="flex flex-col min-w-0">
-                  <EditorTabs
-                    tabs={tabsWithStatus}
-                    activeTab={activeTabPath.join("/")}
-                    onTabSelect={setActiveTabPath}
-                    onTabClose={handleTabClose}
-                  />
+                  <EditorTabs />
                   <div className="flex-1 overflow-hidden">
-                    <CodeEditor
-                      content={content}
-                      language={language}
-                      fileId={fileId}
-                      onChange={handleContentChange}
-                      onCursorChange={(line, col) => setCursorPos({ line, col })}
-                      onSave={handleSave}
-                    />
+                    <CodeEditor />
                   </div>
                 </ResizablePanel>
 
@@ -617,22 +566,12 @@ const Index = () => {
                   <>
                     <ResizableHandle withHandle />
                     <ResizablePanel id="terminal" order={2} defaultSize={25} minSize={10} className="flex flex-col min-w-0">
-                      <Terminal
-                        output={terminalOutput}
-                        isExpanded={terminalExpanded}
-                        onToggle={() => setTerminalExpanded((prev) => !prev)}
-                        onClear={() => setTerminalOutput("")}
-                      />
+                      <Terminal />
                     </ResizablePanel>
                   </>
                 ) : (
                   <div className="shrink-0">
-                    <Terminal
-                      output={terminalOutput}
-                      isExpanded={false}
-                      onToggle={() => setTerminalExpanded(true)}
-                      onClear={() => setTerminalOutput("")}
-                    />
+                    <Terminal />
                   </div>
                 )}
               </ResizablePanelGroup>
@@ -661,17 +600,7 @@ const Index = () => {
 
       {/* Desktop Footer */}
       <div className="hidden md:block">
-        <StatusBar
-          language={language}
-          line={cursorPos.line}
-          col={cursorPos.col}
-          network={network as NetworkKey}
-          horizonUrl={horizonUrl}
-          customRpcUrl={customRpcUrl}
-          onNetworkChange={setNetwork}
-          onCustomRpcUrlChange={setCustomRpcUrl}
-          unsavedCount={unsavedFiles.size}
-        />
+        <StatusBar />
       </div>
 
       {/* Mobile Footer Navigation */}

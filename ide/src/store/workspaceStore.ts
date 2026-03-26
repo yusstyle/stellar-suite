@@ -8,35 +8,44 @@ interface TabInfo {
   name: string;
 }
 
-interface FileStore {
+export type MobilePanel = "none" | "explorer" | "interact" | "deployments" | "identities";
+export type SidebarTab = "explorer" | "deployments" | "identities" | "search";
+export type BuildState = "idle" | "building" | "success" | "error";
+
+interface WorkspaceState {
+  // File System State
   files: FileNode[];
   openTabs: TabInfo[];
   activeTabPath: string[];
   unsavedFiles: Set<string>;
 
+  // Network State
   network: NetworkKey;
   horizonUrl: string;
   networkPassphrase: string;
   customRpcUrl: string;
-  identities: Array<{ id: string; name: string; publicKey: string }>;
-  activeIdentityId: string | null;
-  tokenBalances: Record<string, string>;
+
+  // UI Layout State
+  terminalExpanded: boolean;
+  terminalOutput: string;
+  isCompiling: boolean;
+  buildState: BuildState;
+  contractId: string | null;
+  showExplorer: boolean;
+  showPanel: boolean;
+  cursorPos: { line: number; col: number };
+  saveStatus: string;
+  mobilePanel: MobilePanel;
+  isExplorerDragActive: boolean;
+  leftSidebarTab: SidebarTab;
+
+  // Hydration State
   hydrationComplete: boolean;
 
-  // Actions
+  // File Actions
   setFiles: (files: FileNode[]) => void;
   setActiveTabPath: (path: string[]) => void;
   setOpenTabs: (tabs: TabInfo[]) => void;
-
-  setNetwork: (network: NetworkKey) => void;
-  setHorizonUrl: (url: string) => void;
-  setNetworkPassphrase: (passphrase: string) => void;
-  setCustomRpcUrl: (url: string) => void;
-  setActiveIdentity: (identityId: string | null) => void;
-  setTokenBalances: (balances: Record<string,string>) => void;
-  setHydrationComplete: (ready: boolean) => void;
-  refreshBalances: () => Promise<void>;
-
   addTab: (path: string[], name: string) => void;
   closeTab: (path: string[]) => void;
   updateFileContent: (path: string[], content: string) => void;
@@ -45,6 +54,30 @@ interface FileStore {
   createFolder: (parentPath: string[], name: string) => void;
   deleteNode: (path: string[]) => void;
   renameNode: (path: string[], newName: string) => void;
+
+  // Network Actions
+  setNetwork: (network: NetworkKey) => void;
+  setHorizonUrl: (url: string) => void;
+  setNetworkPassphrase: (passphrase: string) => void;
+  setCustomRpcUrl: (url: string) => void;
+
+  // UI Actions
+  setTerminalExpanded: (expanded: boolean | ((prev: boolean) => boolean)) => void;
+  setTerminalOutput: (output: string | ((prev: string) => string)) => void;
+  setIsCompiling: (isCompiling: boolean) => void;
+  setBuildState: (state: BuildState) => void;
+  setContractId: (id: string | null) => void;
+  setShowExplorer: (show: boolean) => void;
+  setShowPanel: (show: boolean) => void;
+  setCursorPos: (pos: { line: number; col: number }) => void;
+  setSaveStatus: (status: string) => void;
+  setMobilePanel: (panel: MobilePanel) => void;
+  setIsExplorerDragActive: (active: boolean) => void;
+  setLeftSidebarTab: (tab: SidebarTab) => void;
+  appendTerminalOutput: (chunk: string) => void;
+
+  // Misc Actions
+  setHydrationComplete: (ready: boolean) => void;
 }
 
 const cloneFiles = (files: FileNode[]): FileNode[] =>
@@ -66,106 +99,42 @@ const findParent = (nodes: FileNode[], pathParts: string[]): FileNode[] | null =
   return parent?.children ?? null;
 };
 
-const getHorizonBaseUrl = (network: string): string | null => {
-  switch (network) {
-    case "testnet":
-      return "https://horizon-testnet.stellar.org";
-    case "futurenet":
-      return "https://horizon-futurenet.stellar.org";
-    case "mainnet":
-      return "https://horizon.stellar.org";
-    default:
-      return null;
-  }
-};
-
-const fetchNativeXlmBalance = async (publicKey: string, network: string): Promise<number> => {
-  const baseUrl = getHorizonBaseUrl(network);
-  if (!baseUrl) return 0;
-
-  const res = await fetch(`${baseUrl}/accounts/${encodeURIComponent(publicKey)}`);
-  if (res.status === 404) return 0;
-
-  if (!res.ok) {
-    throw new Error(`Horizon request failed: ${res.status}`);
-  }
-
-  const data = await res.json();
-  const balances = (data?.balances ?? []) as Array<{ asset_type?: string; balance?: string }>;
-  const native = balances.find((b) => b.asset_type === "native");
-  const balStr = native?.balance ?? "0";
-  const balNum = Number(balStr);
-  return Number.isFinite(balNum) ? balNum : 0;
-};
-
-export const useFileStore = create<FileStore>()(
+export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
+      // Initial File State
       files: cloneFiles(sampleContracts),
       openTabs: [{ path: ["hello_world", "lib.rs"], name: "lib.rs" }],
       activeTabPath: ["hello_world", "lib.rs"],
       unsavedFiles: new Set<string>(),
 
+      // Initial Network State
       network: "testnet",
       horizonUrl: NETWORK_CONFIG.testnet.horizon,
       networkPassphrase: NETWORK_CONFIG.testnet.passphrase,
       customRpcUrl: DEFAULT_CUSTOM_RPC,
-      identities: [
-        { id: "local-1", name: "Local Keypair 1", publicKey: "GDEXAMPLELOCAL1" },
-        { id: "local-2", name: "Local Keypair 2", publicKey: "GDEXAMPLELOCAL2" },
-      ],
-      activeIdentityId: "local-1",
-      tokenBalances: {},
+
+      // Initial UI State
+      terminalExpanded: true,
+      terminalOutput: "",
+      isCompiling: false,
+      buildState: "idle",
+      contractId: null,
+      showExplorer: true,
+      showPanel: true,
+      cursorPos: { line: 1, col: 1 },
+      saveStatus: "",
+      mobilePanel: "none",
+      isExplorerDragActive: false,
+      leftSidebarTab: "explorer",
+
+      // Initial Hydration State
       hydrationComplete: false,
 
+      // File Actions Implementation
       setFiles: (files) => set({ files }),
       setActiveTabPath: (path) => set({ activeTabPath: path }),
       setOpenTabs: (tabs) => set({ openTabs: tabs }),
-
-      setNetwork: (network) => {
-        const config = NETWORK_CONFIG[network] || NETWORK_CONFIG.testnet;
-        const customRpcUrl = get().customRpcUrl || DEFAULT_CUSTOM_RPC;
-        const horizonUrl = network === "local" ? customRpcUrl : config.horizon;
-        set({
-          network,
-          horizonUrl,
-          networkPassphrase: config.passphrase,
-        });
-
-        // Update balances after network switch.
-        get().refreshBalances();
-      },
-      setHorizonUrl: (url) => set({ horizonUrl: url }),
-      setNetworkPassphrase: (passphrase) => set({ networkPassphrase: passphrase }),
-      setCustomRpcUrl: (customRpcUrl) => {
-        set({ customRpcUrl });
-        if (get().network === "local") {
-          set({ horizonUrl: customRpcUrl });
-          get().refreshBalances();
-        }
-      },
-      setActiveIdentity: (identityId) => set({ activeIdentityId: identityId }),
-      setTokenBalances: (balances) => set({ tokenBalances: balances }),
-      setHydrationComplete: (ready) => set({ hydrationComplete: ready }),
-      refreshBalances: async () => {
-        const { activeIdentityId, network } = get();
-        if (!activeIdentityId) {
-          set({ tokenBalances: {} });
-          return;
-        }
-        try {
-          const xlm = await fetchNativeXlmBalance(activeIdentityId, network);
-          set({
-            tokenBalances: {
-              XLM: xlm.toFixed(2),
-            },
-          });
-        } catch {
-          // Don't hard-fail the IDE if Horizon is temporarily unavailable.
-          set({ tokenBalances: {} });
-        }
-      },
-
       addTab: (path, name) => {
         const key = path.join("/");
         const { openTabs } = get();
@@ -174,25 +143,20 @@ export const useFileStore = create<FileStore>()(
         }
         set({ activeTabPath: path });
       },
-
       closeTab: (path) => {
         const key = path.join("/");
         const { openTabs, activeTabPath, unsavedFiles } = get();
         const nextTabs = openTabs.filter(t => t.path.join("/") !== key);
-        
         let nextActivePath = activeTabPath;
         if (activeTabPath.join("/") === key && nextTabs.length > 0) {
           nextActivePath = nextTabs[nextTabs.length - 1].path;
         } else if (nextTabs.length === 0) {
-            nextActivePath = [];
+          nextActivePath = [];
         }
-
         const nextUnsaved = new Set(unsavedFiles);
         nextUnsaved.delete(key);
-
         set({ openTabs: nextTabs, activeTabPath: nextActivePath, unsavedFiles: nextUnsaved });
       },
-
       updateFileContent: (path, content) => {
         const key = path.join("/");
         const { files, unsavedFiles } = get();
@@ -200,16 +164,11 @@ export const useFileStore = create<FileStore>()(
         const node = findNode(nextFiles, path);
         if (node) {
           node.content = content;
-          set({ files: nextFiles });
-          
-          // We could add logic here to compare with "saved" content if needed
-          // for now we'll just mark it as unsaved if it's changing
           const nextUnsaved = new Set(unsavedFiles);
           nextUnsaved.add(key);
-          set({ unsavedFiles: nextUnsaved });
+          set({ files: nextFiles, unsavedFiles: nextUnsaved });
         }
       },
-
       markSaved: (path) => {
         const key = path.join("/");
         const { unsavedFiles } = get();
@@ -217,7 +176,6 @@ export const useFileStore = create<FileStore>()(
         nextUnsaved.delete(key);
         set({ unsavedFiles: nextUnsaved });
       },
-
       createFile: (parentPath, name, content = "") => {
         const { files } = get();
         const nextFiles = cloneFiles(files);
@@ -233,7 +191,6 @@ export const useFileStore = create<FileStore>()(
           get().addTab([...parentPath, name], name);
         }
       },
-
       createFolder: (parentPath, name) => {
         const { files } = get();
         const nextFiles = cloneFiles(files);
@@ -243,9 +200,8 @@ export const useFileStore = create<FileStore>()(
           set({ files: nextFiles });
         }
       },
-
       deleteNode: (path) => {
-        const { files, activeTabPath } = get();
+        const { files } = get();
         const nextFiles = cloneFiles(files);
         const parent = findParent(nextFiles, path);
         if (parent) {
@@ -253,25 +209,18 @@ export const useFileStore = create<FileStore>()(
           if (idx !== -1) {
             parent.splice(idx, 1);
             set({ files: nextFiles });
-            
-            // Close tab if open
             get().closeTab(path);
           }
         }
       },
-
       renameNode: (path, newName) => {
         const { files, openTabs, activeTabPath } = get();
         const oldKey = path.join("/");
         const nextPath = [...path.slice(0, -1), newName];
-        const nextKey = nextPath.join("/");
-
         const nextFiles = cloneFiles(files);
         const node = findNode(nextFiles, path);
         if (node) {
           node.name = newName;
-          
-          // Update tabs
           const nextTabs = openTabs.map(t => {
             const tKey = t.path.join("/");
             if (tKey === oldKey || tKey.startsWith(oldKey + "/")) {
@@ -280,42 +229,69 @@ export const useFileStore = create<FileStore>()(
             }
             return t;
           });
-
-          // Update active tab
           let nextActivePath = activeTabPath;
           if (activeTabPath.join("/") === oldKey || activeTabPath.join("/").startsWith(oldKey + "/")) {
             nextActivePath = [...nextPath, ...activeTabPath.slice(path.length)];
           }
-
-          set({ 
-            files: nextFiles, 
-            openTabs: nextTabs, 
-            activeTabPath: nextActivePath 
-          });
+          set({ files: nextFiles, openTabs: nextTabs, activeTabPath: nextActivePath });
         }
-      }
+      },
+
+      // Network Actions Implementation
+      setNetwork: (network) => {
+        const config = NETWORK_CONFIG[network] || NETWORK_CONFIG.testnet;
+        const currentCustomRpc = get().customRpcUrl || DEFAULT_CUSTOM_RPC;
+        const horizonUrl = network === "local" ? currentCustomRpc : config.horizon;
+        set({
+          network,
+          horizonUrl,
+          networkPassphrase: config.passphrase,
+        });
+      },
+      setHorizonUrl: (url) => set({ horizonUrl: url }),
+      setNetworkPassphrase: (passphrase) => set({ networkPassphrase: passphrase }),
+      setCustomRpcUrl: (customRpcUrl) => {
+        set({ customRpcUrl });
+        if (get().network === "local") {
+          set({ horizonUrl: customRpcUrl });
+        }
+      },
+
+      // UI Actions Implementation
+      setTerminalExpanded: (expanded) => 
+        set((state) => ({ terminalExpanded: typeof expanded === 'function' ? expanded(state.terminalExpanded) : expanded })),
+      setTerminalOutput: (output) => 
+        set((state) => ({ terminalOutput: typeof output === 'function' ? output(state.terminalOutput) : output })),
+      setIsCompiling: (isCompiling) => set({ isCompiling }),
+      setBuildState: (buildState) => set({ buildState }),
+      setContractId: (contractId) => set({ contractId }),
+      setShowExplorer: (showExplorer) => set({ showExplorer }),
+      setShowPanel: (showPanel) => set({ showPanel }),
+      setCursorPos: (cursorPos) => set({ cursorPos }),
+      setSaveStatus: (saveStatus) => set({ saveStatus }),
+      setMobilePanel: (mobilePanel) => set({ mobilePanel }),
+      setIsExplorerDragActive: (isExplorerDragActive) => set({ isExplorerDragActive }),
+      setLeftSidebarTab: (leftSidebarTab) => set({ leftSidebarTab }),
+      appendTerminalOutput: (chunk) => set((state) => ({ terminalOutput: state.terminalOutput + chunk })),
+
+      // Misc Actions Implementation
+      setHydrationComplete: (ready) => set({ hydrationComplete: ready }),
     }),
     {
-      name: 'stellar-suite-ide-store',
+      name: 'stellar-suite-workspace-store',
       partialize: (state) => ({
         network: state.network,
-        activeIdentityId: state.activeIdentityId,
-        identities: state.identities,
         customRpcUrl: state.customRpcUrl,
+        showExplorer: state.showExplorer,
+        showPanel: state.showPanel,
+        terminalExpanded: state.terminalExpanded,
+        files: state.files,
+        openTabs: state.openTabs,
+        activeTabPath: state.activeTabPath,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          const network = state.network || "testnet";
-          const config = NETWORK_CONFIG[network] || NETWORK_CONFIG.testnet;
-          state.setNetwork(network);
-
-          if (state.customRpcUrl) {
-            state.setCustomRpcUrl(state.customRpcUrl);
-          }
-
-          state.refreshBalances().finally(() => {
-            state.setHydrationComplete(true);
-          });
+          state.setHydrationComplete(true);
         }
       },
     }

@@ -1,4 +1,5 @@
 import { X, Circle } from "lucide-react";
+import { useWorkspaceStore } from "@/store/workspaceStore";
 
 export interface TabInfo {
   path: string[];
@@ -7,18 +8,22 @@ export interface TabInfo {
 }
 
 interface EditorTabsProps {
-  tabs: TabInfo[];
-  activeTab: string;
-  onTabSelect: (path: string[]) => void;
-  onTabClose: (path: string[]) => void;
+  onTabSelect?: (path: string[]) => void;
+  onTabClose?: (path: string[]) => void;
 }
 
-export function EditorTabs({ tabs, activeTab, onTabSelect, onTabClose }: EditorTabsProps) {
+export function EditorTabs({ onTabSelect, onTabClose }: EditorTabsProps) {
+  const { openTabs, activeTabPath, setActiveTabPath, closeTab, unsavedFiles } = useWorkspaceStore();
+  const tabsWithStatus = openTabs.map((t) => ({
+    ...t,
+    unsaved: unsavedFiles.has(t.path.join("/")),
+  }));
+  const activeTabKey = activeTabPath.join("/");
   return (
     <div className="flex bg-secondary border-b border-border overflow-x-auto scrollbar-none">
-      {tabs.map((tab) => {
+      {tabsWithStatus.map((tab) => {
         const key = tab.path.join("/");
-        const isActive = key === activeTab;
+        const isActive = key === activeTabKey;
         return (
           <button
             key={key}
@@ -27,7 +32,7 @@ export function EditorTabs({ tabs, activeTab, onTabSelect, onTabClose }: EditorT
                 ? "bg-tab-active text-foreground border-t-2 border-t-primary"
                 : "bg-tab-inactive text-muted-foreground hover:bg-tab-hover border-t-2 border-t-transparent"
             }`}
-            onClick={() => onTabSelect(tab.path)}
+            onClick={() => (onTabSelect ? onTabSelect(tab.path) : setActiveTabPath(tab.path))}
           >
             {tab.unsaved && (
               <Circle className="h-2 w-2 fill-primary text-primary shrink-0" />
@@ -38,7 +43,8 @@ export function EditorTabs({ tabs, activeTab, onTabSelect, onTabClose }: EditorT
               className="shrink-0 rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
               onClick={(e) => {
                 e.stopPropagation();
-                onTabClose(tab.path);
+                if (onTabClose) onTabClose(tab.path);
+                else closeTab(tab.path);
               }}
             >
               <X className="h-3 w-3" />

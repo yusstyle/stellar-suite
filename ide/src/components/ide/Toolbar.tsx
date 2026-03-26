@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { type NetworkKey } from "@/lib/networkConfig";
 import ImportGithubModal from "@/components/ide/ImportGithubModal";
 import { WalletManager } from "@/components/WalletManager";
+import { useWorkspaceStore } from "@/store/workspaceStore";
 
 type BuildState = "idle" | "building" | "success" | "error";
 
@@ -22,23 +23,20 @@ interface ToolbarProps {
   onCompile: () => void;
   onDeploy: () => void;
   onTest: () => void;
-  isCompiling: boolean;
-  buildState: BuildState;
-  network: NetworkKey;
-  onNetworkChange: (network: NetworkKey) => void;
-  saveStatus?: string;
 }
 
 export function Toolbar({
   onCompile,
   onDeploy,
   onTest,
-  isCompiling,
-  buildState,
-  network,
-  onNetworkChange,
-  saveStatus,
 }: ToolbarProps) {
+  const {
+    isCompiling,
+    buildState,
+    network,
+    setNetwork,
+    saveStatus,
+  } = useWorkspaceStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
@@ -101,7 +99,7 @@ export function Toolbar({
             <Network className="h-3.5 w-3.5" />
             <select
               value={network}
-              onChange={(e) => onNetworkChange(e.target.value as NetworkKey)}
+              onChange={(e) => setNetwork(e.target.value as NetworkKey)}
               className="rounded border border-border bg-secondary px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="testnet">Testnet</option>
@@ -141,7 +139,7 @@ export function Toolbar({
 
           <select
             value={network}
-            onChange={(e) => onNetworkChange(e.target.value as NetworkKey)}
+            onChange={(e) => setNetwork(e.target.value as NetworkKey)}
             className="rounded border border-border bg-secondary px-1.5 py-0.5 text-[10px] text-foreground focus:outline-none"
           >
             <option value="testnet">Testnet</option>

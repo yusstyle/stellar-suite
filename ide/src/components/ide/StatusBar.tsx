@@ -1,21 +1,28 @@
 import { GitBranch, Circle, Save } from "lucide-react";
+import { useWorkspaceStore } from "@/store/workspaceStore";
 
 import { NetworkSelector } from './NetworkSelector';
 import { NetworkKey } from '@/lib/networkConfig';
 
 interface StatusBarProps {
-  language: string;
-  line: number;
-  col: number;
-  network: NetworkKey;
-  horizonUrl: string;
-  customRpcUrl: string;
-  onNetworkChange: (network: NetworkKey) => void;
-  onCustomRpcUrlChange: (url: string) => void;
-  unsavedCount?: number;
+  language?: string;
 }
 
-export function StatusBar({ language, line, col, network, horizonUrl, customRpcUrl, onNetworkChange, onCustomRpcUrlChange, unsavedCount = 0 }: StatusBarProps) {
+export function StatusBar({ language: propLanguage }: StatusBarProps) {
+  const {
+    cursorPos,
+    network,
+    horizonUrl,
+    customRpcUrl,
+    setNetwork,
+    setCustomRpcUrl,
+    unsavedFiles,
+    files,
+    activeTabPath,
+  } = useWorkspaceStore();
+
+  const activeFile = files.find(f => f.name === activeTabPath[activeTabPath.length - 1]);
+  const language = propLanguage || activeFile?.language || "rust";
   return (
     <div className="flex flex-col bg-primary text-primary-foreground text-[10px] md:text-[11px] font-mono">
       <div className="flex items-center justify-between px-2 md:px-3 py-0.5">
@@ -27,18 +34,18 @@ export function StatusBar({ language, line, col, network, horizonUrl, customRpcU
           network={network}
           horizonUrl={horizonUrl}
           customRpcUrl={customRpcUrl}
-          onNetworkChange={onNetworkChange}
-          onCustomRpcUrlChange={onCustomRpcUrlChange}
+          onNetworkChange={setNetwork}
+          onCustomRpcUrlChange={setCustomRpcUrl}
         />
-        {unsavedCount > 0 && (
+        {unsavedFiles.size > 0 && (
           <div className="flex items-center gap-1 text-primary-foreground/70">
             <Save className="h-2.5 w-2.5" />
-            <span>{unsavedCount} unsaved</span>
+            <span>{unsavedFiles.size} unsaved</span>
           </div>
         )}
       </div>
       <div className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-0.5">
-        <span>Ln {line}, Col {col}</span>
+        <span>Ln {cursorPos.line}, Col {cursorPos.col}</span>
         <span className="hidden sm:inline">{language}</span>
         <span className="hidden md:inline">UTF-8</span>
       </div>
