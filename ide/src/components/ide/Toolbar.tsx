@@ -1,4 +1,4 @@
-import { Menu, Network, Settings, TestTube, Upload, X } from "lucide-react";
+import { Network, Settings, TestTube, Upload, Menu, X, Play } from "lucide-react";
 import { useState } from "react";
 
 import { BuildButton } from "@/components/ide/BuildButton";
@@ -43,21 +43,20 @@ export function Toolbar({
             state={isCompiling ? "building" : buildState}
           />
           <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            className="gap-1.5 text-xs"
             onClick={onDeploy}
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs h-8"
           >
             <Upload className="h-3.5 w-3.5" />
             Deploy
           </Button>
           <Button
             type="button"
+            variant="ghost"
             size="sm"
-            variant="secondary"
-            className="gap-1.5 text-xs"
             onClick={onTest}
+            className="gap-1.5 text-xs h-8"
           >
             <TestTube className="h-3.5 w-3.5" />
             Test
@@ -124,28 +123,29 @@ export function Toolbar({
         </div>
       </div>
 
+      {/* Mobile dropdown */}
       {mobileMenuOpen && (
-        <div className="flex gap-1 border-b border-border px-2 pb-2 md:hidden">
+        <div className="md:hidden flex gap-2 px-2 pb-2 border-b border-border">
           <Button
-            type="button"
-            className="flex-1 gap-1"
             onClick={() => {
               onCompile();
               setMobileMenuOpen(false);
             }}
             disabled={isCompiling}
+            className="flex-1 gap-1 text-[11px] h-9"
           >
-            Build
+            <Play className="h-3 w-3" />
+            {isCompiling ? "..." : "Build"}
           </Button>
           <Button
-            type="button"
-            variant="secondary"
-            className="flex-1 gap-1"
             onClick={() => {
               onDeploy();
               setMobileMenuOpen(false);
             }}
+            variant="outline"
+            className="flex-1 gap-1 text-[11px] h-9"
           >
+            <Upload className="h-3 w-3" />
             Deploy
           </Button>
           <Button
@@ -156,6 +156,8 @@ export function Toolbar({
               onTest();
               setMobileMenuOpen(false);
             }}
+            variant="outline"
+            className="flex-1 gap-1 text-[11px] h-9"
           >
             Test
           </Button>
