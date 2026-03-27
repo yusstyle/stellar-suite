@@ -1,6 +1,6 @@
 import { useMathSafetyStore } from "@/store/useMathSafetyStore";
 import { useWorkspaceStore } from "@/store/workspaceStore";
-import { GitBranch, Save } from "lucide-react";
+import { GitBranch, Save, Settings } from "lucide-react";
 
 import { FeeChart } from "./FeeChart";
 import { NetworkSelector } from "./NetworkSelector";
@@ -24,7 +24,7 @@ export function StatusBar({ language: propLanguage }: StatusBarProps) {
     activeTabPath,
   } = useWorkspaceStore();
 
-  const { config, setConfig, setShowMathSafetyInfo } = useMathSafetyStore();
+  const { config, setConfig } = useMathSafetyStore();
 
   const activeFile = files.find(
     (f) => f.name === activeTabPath[activeTabPath.length - 1],
@@ -33,6 +33,10 @@ export function StatusBar({ language: propLanguage }: StatusBarProps) {
 
   const toggleMathSafety = () => {
     setConfig({ enabled: !config.enabled });
+  };
+
+  const openSettings = () => {
+    window.dispatchEvent(new Event("ide:open-settings"));
   };
 
   return (
@@ -63,6 +67,14 @@ export function StatusBar({ language: propLanguage }: StatusBarProps) {
             <span className="hidden sm:inline">
               Math {config.enabled ? "On" : "Off"}
             </span>
+          </button>
+          <button
+            onClick={openSettings}
+            className="flex items-center gap-1 hover:bg-primary-foreground/20 px-2 py-1 rounded transition-colors"
+            title="Open Settings"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-[10px]">Settings</span>
           </button>
           {unsavedFiles.size > 0 && (
             <div className="flex items-center gap-1 text-primary-foreground/70">

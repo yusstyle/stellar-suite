@@ -423,6 +423,7 @@ export function TemplatesView() {
     </div>
   );
 }
+export function TestingView() {
   const { activeTabPath, files, updateFileContent } = useWorkspaceStore();
 
   // Resolve the active file so we can append to it

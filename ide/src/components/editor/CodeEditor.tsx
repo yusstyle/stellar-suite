@@ -5,6 +5,10 @@ import { useWorkspaceStore } from "@/store/workspaceStore";
 import { applyEditsToTree, computeRenameEdits, validateRustIdentifier } from "@/utils/renameProvider";
 import { useDiagnosticsStore as _useDiagnosticsStore } from "@/store/useDiagnosticsStore";
 import { useEditorStore } from "@/store/editorStore";
+import { useUserSettingsStore } from "@/store/useUserSettingsStore";
+import { symbolIndexer } from "@/lib/symbolIndexer"; // 👈 RESTORED
+import { definitionProvider } from "@/lib/definitionProvider"; // 👈 RESTORED
+import { RustSemanticTokensProvider } from "@/lib/semanticTokensProvider"; // 👈 RESTORED
 import {
   createRustFoldingRangeProvider,
   RUST_FOLD_REGION_END,
@@ -17,6 +21,7 @@ import { analyzeMathSafety } from "../../lib/mathSafetyAnalyzer";
 import { useMathSafetyStore } from "../../store/useMathSafetyStore";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { getAllMonacoCompletions } from "@/utils/proptestSnippets";
+import { useTheme } from "next-themes";
 
 interface CodeEditorProps {
   onCursorChange?: (line: number, col: number) => void;
@@ -29,6 +34,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
   const { config, setMathDiagnostics, getAllDiagnostics } = useMathSafetyStore();
   const { getFileCoverage } = useCoverageStore();
   const { setJumpToLine, saveViewState, getViewState } = useEditorStore();
+  const { fontSize, formatOnSave } = useUserSettingsStore(); // 👈 ADDED
+  const { theme: currentTheme } = useTheme(); // 👈 ADDED
+
   const rustProviderRegistered = useRef(false);
   const monacoRef = useRef<typeof Monaco | null>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -42,6 +50,24 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
   useEffect(() => {
     activeFileIdRef.current = activeFileId;
   }, [activeFileId]);
+
+  // Apply font size change to the editor immediately
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.updateOptions({ fontSize });
+    }
+  }, [fontSize]);
+
+  // Sync theme with Monaco
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco) return;
+    
+    const isDark = currentTheme === "dark" || 
+      (currentTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    
+    monaco.editor.setTheme(isDark ? "stellar-dark" : "vs");
+  }, [currentTheme]);
 
   const activeFile = React.useMemo(() => {
     const findNode = (
@@ -242,7 +268,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
       editor.focus();
     });
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
+      if (useUserSettingsStore.getState().formatOnSave) {
+        await editor.getAction("editor.action.formatDocument")?.run();
+      }
       onSave?.();
     });
 
@@ -288,7 +317,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
         "semanticHighlighting.lifetime": "#6c7086", // Gray for lifetimes
       },
     });
-    monaco.editor.setTheme("stellar-dark");
+    
+    // Initial theme setup
+    const initialIsDark = currentTheme === "dark" || 
+      (currentTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    monaco.editor.setTheme(initialIsDark ? "stellar-dark" : "vs");
 
     // Register semantic tokens provider for Rust
     if (!semanticProviderRegistered.current) {
@@ -586,12 +619,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
               (activeFile.name?.endsWith(".toml") ? "toml" : "rust")
             }
             value={activeFile.content}
-            theme="stellar-dark"
+            theme={currentTheme === "dark" || (currentTheme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "stellar-dark" : "vs"}
             saveViewState={false}
             onChange={handleEditorChange}
             onMount={handleEditorDidMount}
             options={{
-              fontSize: 14,
+              fontSize: fontSize,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               automaticLayout: true,

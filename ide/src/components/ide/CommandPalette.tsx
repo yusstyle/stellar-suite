@@ -7,7 +7,7 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command";
-import { Hammer, Rocket, TestTube } from "lucide-react";
+import { Hammer, Rocket, Settings, TestTube } from "lucide-react";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -35,6 +35,13 @@ const ideCommands = [
     shortcut: "T",
     icon: TestTube,
     action: () => window.dispatchEvent(new Event("ide:run-tests")),
+  },
+  {
+    id: "open-settings",
+    label: "Settings",
+    shortcut: "Cmd/Ctrl+Shift+,",
+    icon: Settings,
+    action: () => window.dispatchEvent(new Event("ide:open-settings")),
   },
 ];
 
