@@ -13,6 +13,7 @@ import {
 
 import { FileNode } from "@/lib/sample-contracts";
 import { useWorkspaceStore } from "@/store/workspaceStore";
+import { useCoverageStore } from "@/store/useCoverageStore";
 
 interface FileExplorerProps {
   onFileSelect?: (path: string[], file: FileNode) => void;
@@ -32,6 +33,8 @@ interface TreeRowProps {
   onCreateFolder: (parentPath: string[]) => void;
   onRename: (path: string[]) => void;
   onDelete: (path: string[]) => void;
+  /** Coverage percentage for this file (undefined = no data) */
+  coveragePct?: number;
 }
 
 function TreeRow({
@@ -46,6 +49,7 @@ function TreeRow({
   onCreateFolder,
   onRename,
   onDelete,
+  coveragePct,
 }: TreeRowProps) {
   const currentPath = [...path, node.name];
   const key = pathKey(currentPath);
@@ -85,6 +89,20 @@ function TreeRow({
             <FileText className="h-3.5 w-3.5 text-warning" />
           )}
           <span className="truncate font-mono">{node.name}</span>
+          {!isFolder && coveragePct !== undefined && (
+            <span
+              className={`ml-auto shrink-0 rounded px-1 text-[10px] font-semibold tabular-nums ${
+                coveragePct >= 80
+                  ? "bg-green-500/15 text-green-400"
+                  : coveragePct >= 50
+                  ? "bg-yellow-500/15 text-yellow-400"
+                  : "bg-red-500/15 text-red-400"
+              }`}
+              title={`Coverage: ${coveragePct}%`}
+            >
+              {coveragePct}%
+            </span>
+          )}
         </button>
 
         <div className="hidden items-center gap-0.5 group-hover:flex">
@@ -142,6 +160,7 @@ function TreeRow({
               onCreateFolder={onCreateFolder}
               onRename={onRename}
               onDelete={onDelete}
+              coveragePct={coveragePct}
             />
           ))
         : null}
@@ -160,6 +179,8 @@ export function FileExplorer({ onFileSelect }: FileExplorerProps) {
     renameNode,
     setMobilePanel,
   } = useWorkspaceStore();
+
+  const { summary: coverageSummary, getFileCoverage } = useCoverageStore();
 
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const initial = new Set<string>();
@@ -270,6 +291,11 @@ export function FileExplorer({ onFileSelect }: FileExplorerProps) {
             onCreateFolder={handleCreateFolder}
             onRename={handleRename}
             onDelete={handleDelete}
+            coveragePct={
+              node.type === "file"
+                ? (getFileCoverage(node.name)?.pct)
+                : undefined
+            }
           />
         ))}
 
@@ -277,6 +303,42 @@ export function FileExplorer({ onFileSelect }: FileExplorerProps) {
           <p className="px-3 py-4 text-xs text-muted-foreground">No files in workspace.</p>
         ) : null}
       </div>
+
+      {coverageSummary && (
+        <div className="border-t border-sidebar-border px-3 py-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Coverage</span>
+            <span
+              className={`font-semibold tabular-nums ${
+                coverageSummary.totalPct >= 80
+                  ? "text-green-400"
+                  : coverageSummary.totalPct >= 50
+                  ? "text-yellow-400"
+                  : "text-red-400"
+              }`}
+            >
+              {coverageSummary.totalPct}%
+            </span>
+          </div>
+          <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full rounded-full transition-all ${
+                coverageSummary.totalPct >= 80
+                  ? "bg-green-400"
+                  : coverageSummary.totalPct >= 50
+                  ? "bg-yellow-400"
+                  : "bg-red-400"
+              }`}
+              style={{ width: `${coverageSummary.totalPct}%` }}
+              role="progressbar"
+              aria-valuenow={coverageSummary.totalPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Project coverage: ${coverageSummary.totalPct}%`}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
