@@ -4,6 +4,7 @@ import { Api, Server } from "@stellar/stellar-sdk/rpc";
 import type { ActiveContext, Identity } from "@/store/useIdentityStore";
 import type { WalletProviderType } from "@/wallet/WalletService";
 import { WalletService } from "@/wallet/WalletService";
+import { ErrorTranslator } from "./errorTranslator";
 
 export const DEFAULT_TRANSACTION_POLL_INTERVAL_MS = 2_000;
 export const DEFAULT_TRANSACTION_POLL_TIMEOUT_MS = 45_000;

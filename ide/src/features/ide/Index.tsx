@@ -34,6 +34,9 @@ import {
 } from "@/lib/invokeResult";
 import { type NetworkKey } from "@/lib/networkConfig";
 import { RpcService } from "@/lib/rpcService";
+import { ErrorTranslator } from "@/lib/errorTranslator";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { DeploymentsView } from "@/components/ide/DeploymentsView";
 import { FileNode } from "@/lib/sample-contracts";
 import {
   executeWriteTransaction,
@@ -368,11 +371,19 @@ const Index = () => {
         );
         setInvokeState({ phase: "success", message: "Confirmed" });
       } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Transaction execution failed.";
-        appendTerminalOutput(`Transaction failed: ${message}\r\n`);
+        const translatedError = ErrorTranslator.translate(error, {
+          operation: "write transaction",
+          functionName: fn,
+          contractId,
+        });
+        appendTerminalOutput(
+          ` ${translatedError.title}\n${translatedError.message}\n\nDetails: ${translatedError.details.originalError}\r\n`
+        );
+        if (translatedError.details.suggestions && translatedError.details.suggestions.length > 0) {
+          appendTerminalOutput(
+            `\n💡 Suggestions:\n${translatedError.details.suggestions.map((s) => `  • ${s}`).join("\n")}\r\n`
+          );
+        }
         setInvokeState({ phase: "failed", message: "Failed" });
       } finally {
         setTimeout(() => {
@@ -457,11 +468,21 @@ const Index = () => {
             Array.isArray(parsedArgs) ? parsedArgs : [parsedArgs],
           );
           if (result.success) {
-            appendTerminalOutput(
-              `Result: ${JSON.stringify(result.result)}\r\n`,
-            );
+            appendTerminalOutput(`✓ Result: ${JSON.stringify(result.result)}\r\n`);
           } else {
-            appendTerminalOutput(`Error: ${result.error}\r\n`);
+            // Use translated error if available, otherwise show raw error
+            if (result.translatedError) {
+              appendTerminalOutput(
+                `❌ ${result.translatedError.title}\n${result.translatedError.message}\n\nDetails: ${result.translatedError.details.originalError}\r\n`
+              );
+              if (result.translatedError.details.suggestions && result.translatedError.details.suggestions.length > 0) {
+                appendTerminalOutput(
+                  `\n💡 Suggestions:\n${result.translatedError.details.suggestions.map((s) => `  • ${s}`).join("\n")}\r\n`
+                );
+              }
+            } else {
+              appendTerminalOutput(`❌ Error: ${result.error}\r\n`);
+            }
           }
         } else {
           // TODO: Implement actual transaction invocation
@@ -470,9 +491,19 @@ const Index = () => {
           );
         }
       } catch (error) {
+        const translatedError = ErrorTranslator.translate(error, {
+          operation: isSimulation ? "contract simulation" : "contract invocation",
+          functionName: fn,
+          contractId,
+        });
         appendTerminalOutput(
-          `Error: ${error instanceof Error ? error.message : "Invalid arguments"}\r\n`,
+          ` ${translatedError.title}\n${translatedError.message}\n\nDetails: ${translatedError.details.originalError}\r\n`
         );
+        if (translatedError.details.suggestions && translatedError.details.suggestions.length > 0) {
+          appendTerminalOutput(
+            `\n💡 Suggestions:\n${translatedError.details.suggestions.map((s) => `  • ${s}`).join("\n")}\r\n`
+          );
+        }
       }
     },
     [
