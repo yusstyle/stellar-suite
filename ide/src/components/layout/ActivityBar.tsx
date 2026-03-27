@@ -1,9 +1,23 @@
 "use client";
 
-import { FolderTree, Users, History, Search, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
+import {
+  FolderTree,
+  Users,
+  History,
+  Search,
+  ShieldAlert,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+} from "lucide-react";
 import { ReactNode } from "react";
 
-export type ActivityTab = "explorer" | "deployments" | "identities" | "search";
+export type ActivityTab =
+  | "explorer"
+  | "deployments"
+  | "identities"
+  | "search"
+  | "security";
 
 interface ActivityBarProps {
   activeTab: ActivityTab;
@@ -43,6 +57,12 @@ const tabs: ActivityBarTab[] = [
     icon: <Search className="h-5 w-5" />,
     label: "Search",
     title: "Search Files",
+  },
+  {
+    id: "security",
+    icon: <ShieldAlert className="h-5 w-5" />,
+    label: "Security",
+    title: "Security & Clippy",
   },
 ];
 

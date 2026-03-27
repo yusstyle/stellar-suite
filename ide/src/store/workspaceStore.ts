@@ -17,8 +17,14 @@ export type MobilePanel =
   | "explorer"
   | "interact"
   | "deployments"
-  | "identities";
-export type SidebarTab = "explorer" | "deployments" | "identities" | "search";
+  | "identities"
+  | "security";
+export type SidebarTab =
+  | "explorer"
+  | "deployments"
+  | "identities"
+  | "search"
+  | "security";
 export type BuildState = "idle" | "building" | "success" | "error";
 
 interface WorkspaceState {
