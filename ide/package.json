@@ -66,6 +66,7 @@
     "react-joyride": "^3.0.0",
     "react-remove-scroll-bar": "^2.3.8",
     "react-resizable-panels": "^2.1.9",
+    "react-style-singleton": "^2.2.3",
     "recharts": "^2.15.4",
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
