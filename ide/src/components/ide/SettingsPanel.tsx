@@ -8,19 +8,21 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MathSafetySettings from './MathSafetySettings';
+import RustfmtEditor from '../settings/RustfmtEditor';
 
 const SettingsPanel: React.FC = () => {
   return (
     <div className="h-full w-full p-4 overflow-auto">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Settings</h1>
           <p className="text-muted-foreground">Configure your Stellar Suite IDE experience</p>
         </div>
 
         <Tabs defaultValue="math-safety" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="math-safety">Math Safety</TabsTrigger>
+            <TabsTrigger value="formatting">Formatting</TabsTrigger>
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="network">Network</TabsTrigger>
             <TabsTrigger value="editor">Editor</TabsTrigger>
@@ -28,6 +30,10 @@ const SettingsPanel: React.FC = () => {
           
           <TabsContent value="math-safety" className="space-y-4">
             <MathSafetySettings />
+          </TabsContent>
+
+          <TabsContent value="formatting" className="space-y-4">
+            <RustfmtEditor />
           </TabsContent>
           
           <TabsContent value="general" className="space-y-4">
@@ -78,3 +84,4 @@ const SettingsPanel: React.FC = () => {
 };
 
 export default SettingsPanel;
+
