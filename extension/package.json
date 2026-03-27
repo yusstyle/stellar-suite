@@ -118,6 +118,11 @@
         "command": "stellarSuite.analyzeSecurity",
         "title": "Kit Studio: Analyze Security",
         "icon": "$(shield)"
+      },
+      {
+        "command": "stellarSuite.showNetworkHealth",
+        "title": "Kit Studio: Show Network Health",
+        "icon": "$(pulse)"
       }
     ],
     "menus": {
