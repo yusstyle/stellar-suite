@@ -8,6 +8,7 @@ import { keysGenerate, keysFund, keysList } from './commands/keyManager';
 import { generateBindings } from './commands/generateBindings';
 import { runInvoke } from './commands/runInvoke';
 import { contractInfo } from './commands/contractInfo';
+import { analyzeSecurity } from './commands/analyzeSecurity';
 import { initNetworkStatusBar } from './ui/networkStatusBar';
 import { initIdentityStatusBar } from './ui/identityStatusBar';
 import { SidebarViewProvider } from './ui/sidebarView';
@@ -117,6 +118,10 @@ export async function activate(context: vscode.ExtensionContext) {
             return contractInfo(context, args);
         });
 
+        const analyzeSecurityCommand = vscode.commands.registerCommand('stellarSuite.analyzeSecurity', (args) => {
+            return analyzeSecurity(context, args);
+        });
+
         const watcher = vscode.workspace.createFileSystemWatcher('**/{Cargo.toml,*.wasm}');
         watcher.onDidChange(() => {
             if (sidebarProvider) {
@@ -149,6 +154,7 @@ export async function activate(context: vscode.ExtensionContext) {
             generateBindingsCommand,
             runInvokeCommand,
             contractInfoCommand,
+            analyzeSecurityCommand,
             watcher
         );
     } catch (error) {

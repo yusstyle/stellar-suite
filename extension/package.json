@@ -113,6 +113,11 @@
         "command": "stellarSuite.contractInfo",
         "title": "Kit Studio: Inspect Metadata",
         "icon": "$(info)"
+      },
+      {
+        "command": "stellarSuite.analyzeSecurity",
+        "title": "Kit Studio: Analyze Security",
+        "icon": "$(shield)"
       }
     ],
     "menus": {
@@ -146,6 +151,11 @@
         },
         {
           "command": "stellarSuite.contractInfo",
+          "when": "view == stellarSuite.contractsView",
+          "group": "inline"
+        },
+        {
+          "command": "stellarSuite.analyzeSecurity",
           "when": "view == stellarSuite.contractsView",
           "group": "inline"
         }

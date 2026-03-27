@@ -107,7 +107,12 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
                                 contractId: message.contractId
                             });
                             break;
-
+                        case 'analyzeSecurity':
+                            if (message.contractPath) {
+                                this._context.workspaceState.update('selectedContractPath', message.contractPath);
+                            }
+                            await vscode.commands.executeCommand('stellarSuite.analyzeSecurity');
+                            break;
                         case 'getCliHistory':
                             const history = this.getCliHistory();
                             webviewView.webview.postMessage({

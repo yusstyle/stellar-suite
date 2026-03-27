@@ -3,11 +3,13 @@ import { useDiagnosticsStore } from "@/store/useDiagnosticsStore";
 import { useWorkspaceStore } from "@/store/workspaceStore";
 import { applyEditsToTree, computeRenameEdits, validateRustIdentifier } from "@/utils/renameProvider";
 import { useDiagnosticsStore as _useDiagnosticsStore } from "@/store/useDiagnosticsStore";
+import { useEditorStore } from "@/store/editorStore";
 import Editor, { OnChange, OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import React, { Suspense, useEffect, useRef } from "react";
 import { analyzeMathSafety } from "../../lib/mathSafetyAnalyzer";
 import { useMathSafetyStore } from "../../store/useMathSafetyStore";
+import { Breadcrumbs } from "./Breadcrumbs";
 
 interface CodeEditorProps {
   onCursorChange?: (line: number, col: number) => void;
@@ -19,6 +21,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
   const { diagnostics } = useDiagnosticsStore();
   const { config, setMathDiagnostics, getAllDiagnostics } =
     useMathSafetyStore();
+  const { setJumpToLine } = useEditorStore();
   const rustProviderRegistered = useRef(false);
   const monacoRef = useRef<typeof Monaco | null>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -104,6 +107,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     monacoRef.current = monaco;
     editorRef.current = editor;
+
+    // Register jump-to-line function for outline view
+    setJumpToLine((line: number) => {
+      editor.revealLineInCenter(line);
+      editor.setPosition({ lineNumber: line, column: 1 });
+      editor.focus();
+    });
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       onSave?.();
@@ -270,47 +280,50 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
   }
 
   return (
-    <div
-      id="tour-monaco"
-      className="h-full w-full overflow-hidden relative border-t border-border"
-    >
-      <Suspense
-        fallback={
-          <div className="h-full flex items-center justify-center bg-[#1e1e2e] text-muted-foreground font-mono text-xs">
-            Loading Editor...
-          </div>
-        }
+    <div className="h-full w-full flex flex-col overflow-hidden">
+      <Breadcrumbs />
+      <div
+        id="tour-monaco"
+        className="flex-1 w-full overflow-hidden relative border-t border-border"
       >
-        <Editor
-          height="100%"
-          defaultLanguage={
-            activeFile.language ||
-            (activeFile.name?.endsWith(".toml") ? "toml" : "rust")
+        <Suspense
+          fallback={
+            <div className="h-full flex items-center justify-center bg-[#1e1e2e] text-muted-foreground font-mono text-xs">
+              Loading Editor...
+            </div>
           }
-          language={
-            activeFile.language ||
-            (activeFile.name?.endsWith(".toml") ? "toml" : "rust")
-          }
-          value={activeFile.content}
-          theme="stellar-dark"
-          onChange={handleEditorChange}
-          onMount={handleEditorDidMount}
-          options={{
-            fontSize: 14,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: 4,
-            lineNumbers: "on",
-            glyphMargin: false,
-            folding: true,
-            lineDecorationsWidth: 10,
-            lineNumbersMinChars: 3,
-            fontFamily:
-              "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
-          }}
-        />
-      </Suspense>
+        >
+          <Editor
+            height="100%"
+            defaultLanguage={
+              activeFile.language ||
+              (activeFile.name?.endsWith(".toml") ? "toml" : "rust")
+            }
+            language={
+              activeFile.language ||
+              (activeFile.name?.endsWith(".toml") ? "toml" : "rust")
+            }
+            value={activeFile.content}
+            theme="stellar-dark"
+            onChange={handleEditorChange}
+            onMount={handleEditorDidMount}
+            options={{
+              fontSize: 14,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              tabSize: 4,
+              lineNumbers: "on",
+              glyphMargin: false,
+              folding: true,
+              lineDecorationsWidth: 10,
+              lineNumbersMinChars: 3,
+              fontFamily:
+                "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+            }}
+          />
+        </Suspense>
+      </div>
     </div>
   );
 };

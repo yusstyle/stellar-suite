@@ -9,6 +9,8 @@ import {
 import CodeEditor from "@/components/ide/CodeEditor";
 import { ContractPanel } from "@/components/ide/ContractPanel";
 import { DeploymentsView } from "@/components/ide/DeploymentsView";
+import { GitPane } from "@/components/ide/GitPane";
+import { DiffEditorPane } from "@/components/editor/DiffEditorPane";
 import { EditorTabs } from "@/components/ide/EditorTabs";
 import { FileExplorer } from "@/components/ide/FileExplorer";
 import { IdentitiesView } from "@/components/ide/IdentitiesView";
@@ -17,6 +19,7 @@ import { SecurityView } from "@/components/ide/SecurityView";
 import { StatusBar } from "@/components/ide/StatusBar";
 import { Terminal } from "@/components/ide/Terminal";
 import { Toolbar } from "@/components/ide/Toolbar";
+import { OutlineView } from "@/components/sidebar/OutlineView";
 import { ActivityBar } from "@/components/layout/ActivityBar";
 import { type NetworkKey } from "@/lib/networkConfig";
 import { type FileNode } from "@/lib/sample-contracts";
@@ -121,6 +124,8 @@ export default function Index() {
     updateFileContent,
     addTab,
     setActiveTabPath,
+    diffViewPath,
+    setDiffViewPath,
   } = useWorkspaceStore();
 
   const { activeContext, activeIdentity, loadIdentities } = useIdentityStore();
@@ -469,6 +474,7 @@ export default function Index() {
                 }}
               />
             ) : null}
+            {leftSidebarTab === "outline" ? <OutlineView /> : null}
             {leftSidebarTab === "security" ? (
               <SecurityView
                 clippyLints={clippyLints}
@@ -484,13 +490,22 @@ export default function Index() {
                 lastAuditRunAt={lastAuditRunAt}
               />
             ) : null}
+            {leftSidebarTab === "git" ? <GitPane /> : null}
           </aside>
         ) : null}
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <EditorTabs />
           <div className="min-h-0 flex-1 overflow-hidden">
-            <CodeEditor />
+            {diffViewPath ? (
+              <DiffEditorPane
+                path={diffViewPath}
+                currentContent={activeFileContext?.content ?? ""}
+                language={activeFileContext?.language ?? "text"}
+              />
+            ) : (
+              <CodeEditor />
+            )}
           </div>
           <div className="h-56 shrink-0 border-t border-border">
             <Terminal />

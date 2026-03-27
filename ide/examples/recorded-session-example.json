@@ -1,0 +1,60 @@
+{
+  "name": "Token Transfer Flow",
+  "description": "Recorded interaction session from 2026-03-27T12:00:00.000Z",
+  "network": "testnet",
+  "contracts": [
+    {
+      "id": "contract_1",
+      "address": "CCTOKEN123ABCDEFGHIJKLMNOPQRSTUVWXYZ456789"
+    }
+  ],
+  "interactions": [
+    {
+      "step": 1,
+      "description": "initialize on CCTOKEN12...",
+      "contract": "contract_1",
+      "function": "initialize",
+      "args": [
+        "MyToken",
+        "MTK",
+        18
+      ],
+      "signer": "GOWNER123ABCDEFGHIJKLMNOPQRSTUVWXYZ456789",
+      "simulation": false,
+      "expectedResult": {
+        "success": true
+      }
+    },
+    {
+      "step": 2,
+      "description": "mint on CCTOKEN12...",
+      "contract": "contract_1",
+      "function": "mint",
+      "args": [
+        "GUSER456ABCDEFGHIJKLMNOPQRSTUVWXYZ789012",
+        "1000000"
+      ],
+      "signer": "GOWNER123ABCDEFGHIJKLMNOPQRSTUVWXYZ456789",
+      "simulation": false,
+      "expectedResult": {
+        "success": true
+      }
+    },
+    {
+      "step": 3,
+      "description": "transfer on CCTOKEN12...",
+      "contract": "contract_1",
+      "function": "transfer",
+      "args": [
+        "GUSER456ABCDEFGHIJKLMNOPQRSTUVWXYZ789012",
+        "GUSER789ABCDEFGHIJKLMNOPQRSTUVWXYZ012345",
+        "500"
+      ],
+      "signer": "GUSER456ABCDEFGHIJKLMNOPQRSTUVWXYZ789012",
+      "simulation": false,
+      "expectedResult": {
+        "success": true
+      }
+    }
+  ]
+}

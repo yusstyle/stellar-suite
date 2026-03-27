@@ -138,6 +138,20 @@ export class SidebarWebView {
             margin: 2px 0;
             font-family: var(--vscode-editor-font-family);
         }
+        .btn-security {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-security:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+            transform: translateY(-1px);
+        }
         .contract-item, .deployment-item {
             background: var(--vscode-sideBar-background);
             border: 1px solid var(--vscode-sideBar-border);
@@ -377,8 +391,12 @@ export class SidebarWebView {
             vscode.postMessage({ command: 'simulate', contractId: contractId, functionName: functionName });
         }
         
-        function inspectContract(contractId) {
-            vscode.postMessage({ command: 'inspectContract', contractId: contractId });
+        function contractInfo(contractId) {
+            vscode.postMessage({ command: 'contractInfo', contractId: contractId });
+        }
+        
+        function analyzeSecurity(contractPath) {
+            vscode.postMessage({ command: 'analyzeSecurity', contractPath: contractPath });
         }
         
         function runInvoke(contractId, functionName) {
@@ -497,6 +515,7 @@ export class SidebarWebView {
                         ${contract.contractId ? `<button class="btn btn-secondary" onclick="simulate('${this.escapeHtml(contract.contractId)}')">Simulate</button>` : ''}
                         ${contract.contractId ? `<button class="btn btn-secondary" onclick="runInvoke('${this.escapeHtml(contract.contractId)}')">Run</button>` : ''}
                         ${contract.contractId ? `<button class="btn btn-secondary" onclick="contractInfo('${this.escapeHtml(contract.contractId)}')">Info</button>` : ''}
+                        <button class="btn btn-security" onclick="analyzeSecurity('${this.escapeHtml(contract.path)}')">🛡️ Security</button>
                     </div>
                 </div>
             `;
