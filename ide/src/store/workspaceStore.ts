@@ -8,6 +8,8 @@ import { FileNode, sampleContracts } from "@/lib/sample-contracts";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export type CustomHeaders = Record<string, string>;
+
 interface TabInfo {
   path: string[];
   name: string;
@@ -22,6 +24,7 @@ export type MobilePanel =
   | "security";
 export type SidebarTab =
   | "explorer"
+  | "git"
   | "deployments"
   | "identities"
   | "search"
@@ -56,6 +59,7 @@ interface WorkspaceState {
   mobilePanel: MobilePanel;
   isExplorerDragActive: boolean;
   leftSidebarTab: SidebarTab;
+  diffViewPath: string[] | null;
 
   // Hydration State
   hydrationComplete: boolean;
@@ -96,6 +100,7 @@ interface WorkspaceState {
   setIsExplorerDragActive: (active: boolean) => void;
   setLeftSidebarTab: (tab: SidebarTab) => void;
   appendTerminalOutput: (chunk: string) => void;
+  setDiffViewPath: (path: string[] | null) => void;
 
   // Misc Actions
   setHydrationComplete: (ready: boolean) => void;
@@ -152,6 +157,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       mobilePanel: "none",
       isExplorerDragActive: false,
       leftSidebarTab: "explorer",
+      diffViewPath: null,
 
       // Initial Hydration State
       hydrationComplete: false,
@@ -338,6 +344,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setLeftSidebarTab: (leftSidebarTab) => set({ leftSidebarTab }),
       appendTerminalOutput: (chunk) =>
         set((state) => ({ terminalOutput: state.terminalOutput + chunk })),
+      setDiffViewPath: (diffViewPath) => set({ diffViewPath }),
 
       // Misc Actions Implementation
       setHydrationComplete: (ready) => set({ hydrationComplete: ready }),

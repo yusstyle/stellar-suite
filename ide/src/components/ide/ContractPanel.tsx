@@ -30,9 +30,10 @@ interface ContractPanelProps {
     phase: "idle" | "preparing" | "signing" | "submitting" | "confirming" | "success" | "failed";
     message: string;
   };
+  lastInvocation?: InvocationDebugData | null;
 }
 
-export function ContractPanel({ contractId, onInvoke, invokeState }: ContractPanelProps) {
+export function ContractPanel({ contractId, onInvoke, invokeState, lastInvocation = null }: ContractPanelProps) {
   const [fnName, setFnName] = useState("hello");
   const [args, setArgs] = useState('"Dev"');
   const [showManager, setShowManager] = useState(false);

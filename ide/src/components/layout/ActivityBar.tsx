@@ -15,6 +15,7 @@ import { ReactNode } from "react";
 
 export type ActivityTab =
   | "explorer"
+  | "git"
   | "deployments"
   | "identities"
   | "search"
@@ -41,6 +42,12 @@ const tabs: ActivityBarTab[] = [
     icon: <FolderTree className="h-5 w-5" />,
     label: "Explorer",
     title: "File Explorer",
+  },
+  {
+    id: "git",
+    icon: <History className="h-5 w-5 rotate-180" />, // Use History rotated as a placeholder for Git if GitBranch is not available or just to match look
+    label: "Source Control",
+    title: "Source Control (Git)",
   },
   {
     id: "deployments",

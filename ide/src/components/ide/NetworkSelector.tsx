@@ -1,9 +1,12 @@
+import { useState } from "react";
+
 import {
   CustomHeaders,
   DEFAULT_CUSTOM_RPC,
   NETWORK_CONFIG,
   NetworkKey,
 } from "@/lib/networkConfig";
+import { NetworkHeaderEditor } from "./NetworkHeaderEditor";
 
 interface NetworkSelectorProps {
   network: NetworkKey;
