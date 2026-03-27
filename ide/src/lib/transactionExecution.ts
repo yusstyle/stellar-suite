@@ -1,6 +1,8 @@
 import { contract, Keypair, TransactionBuilder } from "@stellar/stellar-sdk";
 import { Api, Server } from "@stellar/stellar-sdk/rpc";
 
+import type { NetworkKey } from "@/lib/networkConfig";
+import { withRpcFailover } from "@/lib/rpcFailover";
 import type { ActiveContext, Identity } from "@/store/useIdentityStore";
 import type { WalletProviderType } from "@/wallet/WalletService";
 import { WalletService } from "@/wallet/WalletService";
@@ -38,6 +40,7 @@ export interface ExecuteWriteTransactionOptions {
   fnName: string;
   args: string;
   rpcUrl: string;
+  network?: NetworkKey;
   networkPassphrase: string;
   activeContext: ActiveContext;
   activeIdentity: Identity | null;
@@ -168,6 +171,7 @@ export const executeWriteTransaction = async ({
   fnName,
   args,
   rpcUrl,
+  network,
   networkPassphrase,
   activeContext,
   activeIdentity,
@@ -179,22 +183,36 @@ export const executeWriteTransaction = async ({
 }: ExecuteWriteTransactionOptions) => {
   const publicKey = getActivePublicKey(activeContext, activeIdentity, webWalletPublicKey);
   const normalizedArgs = normalizeInvocationArgs(args);
-  const allowHttp = getAllowHttp(rpcUrl);
-  const server = new Server(rpcUrl, { allowHttp });
 
   onStatus?.({
     phase: "preparing",
     message: `Assembling ${fnName} transaction...`,
   });
 
-  const client = await contract.Client.from({
-    contractId,
-    rpcUrl,
-    networkPassphrase,
-    allowHttp,
-    publicKey,
-    server,
+  const { result: rpcContext } = await withRpcFailover({
+    network,
+    primaryUrl: rpcUrl,
+    operation: async (candidateRpcUrl) => {
+      const allowHttp = getAllowHttp(candidateRpcUrl);
+      const server = new Server(candidateRpcUrl, { allowHttp });
+      const client = await contract.Client.from({
+        contractId,
+        rpcUrl: candidateRpcUrl,
+        networkPassphrase,
+        allowHttp,
+        publicKey,
+        server,
+      });
+
+      return {
+        allowHttp,
+        client,
+        rpcUrl: candidateRpcUrl,
+        server,
+      };
+    },
   });
+  const { client, server } = rpcContext;
 
   const method = (client as unknown as Record<string, unknown>)[fnName];
   if (typeof method !== "function") {

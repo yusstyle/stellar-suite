@@ -2,6 +2,8 @@ import { Buffer } from "buffer";
 import { contract, type xdr } from "@stellar/stellar-sdk";
 import type { JSONSchema7 } from "json-schema";
 
+import type { NetworkKey } from "@/lib/networkConfig";
+import { withRpcFailover } from "@/lib/rpcFailover";
 import type { FileNode } from "@/lib/sample-contracts";
 
 export interface FunctionInputSpec {
@@ -37,6 +39,7 @@ export interface ResolveContractSchemaOptions {
   activeTabPath: string[];
   rpcUrl: string;
   networkPassphrase: string;
+  network?: NetworkKey;
 }
 
 const SPEC_JSON_FILE_PATTERN = /(abi|bindings|contractspec|spec).*\.json$/i;
@@ -338,21 +341,27 @@ export const resolveContractSchema = async ({
   activeTabPath,
   rpcUrl,
   networkPassphrase,
+  network,
 }: ResolveContractSchemaOptions): Promise<ParsedContractSchema> => {
   const trimmedContractId = contractId?.trim();
 
   if (trimmedContractId) {
     try {
-      const client = await contract.Client.from({
-        contractId: trimmedContractId,
-        rpcUrl,
-        networkPassphrase,
-        allowHttp: rpcUrl.startsWith("http://"),
+      const { result: client, activeRpcUrl } = await withRpcFailover({
+        network,
+        primaryUrl: rpcUrl,
+        operation: async (candidateRpcUrl) =>
+          contract.Client.from({
+            contractId: trimmedContractId,
+            rpcUrl: candidateRpcUrl,
+            networkPassphrase,
+            allowHttp: candidateRpcUrl.startsWith("http://"),
+          }),
       });
 
       return createResultFromContractSpec(client.spec, "contract-id", {
         contractId: trimmedContractId,
-        rpcUrl,
+        rpcUrl: activeRpcUrl,
       });
     } catch (remoteError) {
       const localResult = parseWorkspaceSpecCandidate(files, activeTabPath);

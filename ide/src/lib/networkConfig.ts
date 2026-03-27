@@ -4,6 +4,7 @@ export interface NetworkConfig {
   label: string;
   horizon: string;
   passphrase: string;
+  secondaryRpcUrls: string[];
 }
 
 export interface CustomHeaders {
@@ -15,21 +16,25 @@ export const NETWORK_CONFIG: Record<NetworkKey, NetworkConfig> = {
     label: "Testnet",
     horizon: "https://soroban-testnet.stellar.org:443",
     passphrase: "Test SDF Network ; September 2015",
+    secondaryRpcUrls: [],
   },
   futurenet: {
     label: "Futurenet",
     horizon: "https://soroban-futurenet.stellar.org:443",
     passphrase: "Future SDF Network ; October 2022",
+    secondaryRpcUrls: [],
   },
   mainnet: {
     label: "Mainnet",
     horizon: "https://horizon.stellar.org:443",
     passphrase: "Public Global Stellar Network ; September 2015",
+    secondaryRpcUrls: [],
   },
   local: {
     label: "Local",
     horizon: "http://localhost:8000",
     passphrase: "Local Stellar Network",
+    secondaryRpcUrls: [],
   },
 };
 
