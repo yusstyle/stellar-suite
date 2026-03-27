@@ -123,6 +123,7 @@ export function Toolbar({
           <Button onClick={() => setCiOpen(true)} variant="ghost" size="sm" className="h-8 gap-1.5 text-xs">
             <FileCode2 className="h-3.5 w-3.5" />
             Export CI
+          </Button>
           <Button
             onClick={() => setStateEditorOpen(true)}
             variant="ghost"
@@ -281,6 +282,8 @@ export function Toolbar({
           >
             <FileCode2 className="h-3 w-3" />
             Export CI
+          </Button>
+          <Button
             className={`h-9 flex-1 gap-1 text-[11px] ${hasMockState ? "text-primary" : ""}`}
             onClick={() => {
               setStateEditorOpen(true);

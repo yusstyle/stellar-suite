@@ -42,7 +42,7 @@ interface TestResult extends TestGasProfile {
     memoryBytes: number;
     readonly?: boolean;
   };
-  duration?: number;
+  snapshotMismatch?: boolean;
 }
 
 interface TestExplorerProps {
@@ -157,24 +157,6 @@ export function TestExplorer({ onGasProfileUpdate }: TestExplorerProps) {
       setIsRunning(false);
     }, 1500);
   };
-
-  let cursor = fileNode.children;
-
-  for (const mod of test.modulePath) {
-    let modNode = cursor.find(
-      (node): node is Extract<TreeNode, { type: "module" }> =>
-        node.type === "module" && node.label === mod
-    );
-
-    if (!modNode) {
-      modNode = {
-        id: `${fileNode.id}:mod:${test.modulePath.join("::")}:${mod}`,
-        type: "module",
-        label: mod,
-        children: [],
-      };
-      cursor.push(modNode);
-    }
 
   // Check if test exceeds threshold
   const isGasExcessive = (test: TestResult): boolean => {
@@ -336,7 +318,13 @@ export function TestExplorer({ onGasProfileUpdate }: TestExplorerProps) {
                           }`}
                         >
                           <div className="flex items-center gap-3 flex-1 min-w-0">
-                            {getStatusIcon(test.status)}
+                            {test.status === 'passed' ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                            ) : test.status === 'failed' ? (
+                              <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                            ) : (
+                              <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                            )}
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{test.testName}</p>
                               <p className="text-xs text-muted-foreground truncate">{test.testPath}</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { CommandPalette } from "@/components/ide/CommandPalette";
+import Index from "@/features/ide/Index";
 import { MobileGatekeeper } from "@/components/ide/MobileGatekeeper";
 import { QuickOpen } from "@/components/ide/QuickOpen";
 import { Toaster as Sonner } from "@/components/ui/sonner";

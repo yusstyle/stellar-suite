@@ -5,7 +5,7 @@
  *
  * Each snippet is self-contained valid Rust that can be inserted directly into
  * a test file. The `insertText` field uses VS Code / Monaco snippet syntax
- * (tab-stops $1, $2 … and placeholders ${1:name}) so the editor can guide the
+ * (tab-stops $1, $2 … and placeholders \${1:name}) so the editor can guide the
  * developer through customisation after insertion.
  *
  * Categories
@@ -39,7 +39,7 @@ export interface PropTestSnippet {
   readonly category: SnippetCategory;
   /**
    * The Rust source code to insert.
-   * Uses Monaco snippet syntax: $1, $2, ${1:placeholder}.
+   * Uses Monaco snippet syntax: $1, $2, \${1:placeholder}.
    * $0 marks the final cursor position.
    */
   readonly insertText: string;
@@ -60,12 +60,12 @@ export interface PropTestSnippet {
 // ---------------------------------------------------------------------------
 
 /**
- * Strip Monaco tab-stop markers ($1, ${1:foo}) from a snippet string to
+ * Strip Monaco tab-stop markers ($1, \${1:foo}) from a snippet string to
  * produce a clean preview / clipboard string.
  */
 export function stripTabStops(snippet: string): string {
   return snippet
-    .replace(/\$\{\d+:([^}]*)\}/g, "$1") // ${1:placeholder} → placeholder
+    .replace(/\$\{\d+:([^}]*)\}/g, "$1") // \${1:placeholder} → placeholder
     .replace(/\$\d+/g, "");               // $1 → ""
 }
 
@@ -93,14 +93,14 @@ const integerSnippets: PropTestSnippet[] = [
     category: "integers",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:fn_name}_valid_amount(amount in 0i128..=100_000_000i128) {
+    fn prop_\${1:fn_name}_valid_amount(amount in 0i128..=100_000_000i128) {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register(${2:MyContract}, ());
-        let client = ${2:MyContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${2:MyContract}, ());
+        let client = \${2:MyContract}Client::new(&env, &contract_id);
 
         // Property: the function must not panic for any valid amount
-        let result = client.${3:transfer}(&amount);
+        let result = client.\${3:transfer}(&amount);
         prop_assert!(result >= 0i128, "result must be non-negative, got {}", result);
         $0
     }
@@ -118,10 +118,10 @@ const integerSnippets: PropTestSnippet[] = [
     category: "integers",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:counter}_bounded(increments in 1u32..=1_000u32) {
+    fn prop_\${1:counter}_bounded(increments in 1u32..=1_000u32) {
         let env = Env::default();
-        let contract_id = env.register(${2:IncrementContract}, ());
-        let client = ${2:IncrementContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${2:IncrementContract}, ());
+        let client = \${2:IncrementContract}Client::new(&env, &contract_id);
 
         let mut last = 0u32;
         for _ in 0..increments {
@@ -145,7 +145,7 @@ const integerSnippets: PropTestSnippet[] = [
     category: "integers",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:fn_name}_timestamp(
+    fn prop_\${1:fn_name}_timestamp(
         base_ts   in 0u64..=1_700_000_000u64,
         delta_sec in 1u64..=86_400u64,          // 1 s – 24 h
     ) {
@@ -153,12 +153,12 @@ const integerSnippets: PropTestSnippet[] = [
         env.mock_all_auths();
         env.ledger().with_mut(|li| li.timestamp = base_ts);
 
-        let contract_id = env.register(${2:MyContract}, ());
-        let client = ${2:MyContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${2:MyContract}, ());
+        let client = \${2:MyContract}Client::new(&env, &contract_id);
 
         // Advance time and assert the time-locked function behaves correctly
         env.ledger().with_mut(|li| li.timestamp = base_ts + delta_sec);
-        let result = client.${3:check_expiry}();
+        let result = client.\${3:check_expiry}();
         prop_assert!(result, "should succeed after delta_sec={}", delta_sec);
         $0
     }
@@ -176,15 +176,15 @@ const integerSnippets: PropTestSnippet[] = [
     category: "integers",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:fee}_no_overflow(
+    fn prop_\${1:fee}_no_overflow(
         amount  in 1i128..=1_000_000_000i128,
         bps     in 1u32..=10_000u32,           // 0.01 % – 100 %
     ) {
         let env = Env::default();
-        let contract_id = env.register(${2:MyContract}, ());
-        let client = ${2:MyContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${2:MyContract}, ());
+        let client = \${2:MyContract}Client::new(&env, &contract_id);
 
-        let fee = client.${3:calc_fee}(&amount, &bps);
+        let fee = client.\${3:calc_fee}(&amount, &bps);
 
         // Fee must be ≤ amount and non-negative
         prop_assert!(fee >= 0i128,   "fee must be non-negative");
@@ -211,7 +211,7 @@ const addressSnippets: PropTestSnippet[] = [
     insertText: `proptest! {
     /// Any address that is NOT the admin must be rejected.
     #[test]
-    fn prop_${1:fn_name}_rejects_non_admin(seed in 0u64..=u64::MAX) {
+    fn prop_\${1:fn_name}_rejects_non_admin(seed in 0u64..=u64::MAX) {
         let env = Env::default();
         env.mock_all_auths();
 
@@ -220,13 +220,13 @@ const addressSnippets: PropTestSnippet[] = [
         let attacker = Address::generate(&env);
         let admin    = Address::generate(&env);
 
-        let contract_id = env.register(${2:MyContract}, ());
-        let client = ${2:MyContract}Client::new(&env, &contract_id);
-        client.${3:initialize}(&admin);
+        let contract_id = env.register(\${2:MyContract}, ());
+        let client = \${2:MyContract}Client::new(&env, &contract_id);
+        client.\${3:initialize}(&admin);
 
         // Attempt the privileged call as attacker — must panic
         let result = std::panic::catch_unwind(|| {
-            client.${4:admin_fn}(&attacker);
+            client.\${4:admin_fn}(&attacker);
         });
         prop_assert!(result.is_err(), "non-admin call must panic");
         $0
@@ -274,7 +274,7 @@ const addressSnippets: PropTestSnippet[] = [
     category: "addresses",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:transfer}_conserves_balance(amount in 1i128..=1_000_000i128) {
+    fn prop_\${1:transfer}_conserves_balance(amount in 1i128..=1_000_000i128) {
         let env = Env::default();
         env.mock_all_auths();
 
@@ -289,13 +289,13 @@ const addressSnippets: PropTestSnippet[] = [
         let token = token::Client::new(&env, &token_id);
         token::StellarAssetClient::new(&env, &token_id).mint(&sender, &amount);
 
-        let contract_id = env.register(${2:MyContract}, ());
-        let client = ${2:MyContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${2:MyContract}, ());
+        let client = \${2:MyContract}Client::new(&env, &contract_id);
 
         let before_sender   = token.balance(&sender);
         let before_receiver = token.balance(&receiver);
 
-        client.${3:transfer}(&sender, &receiver, &amount);
+        client.\${3:transfer}(&sender, &receiver, &amount);
 
         let after_sender   = token.balance(&sender);
         let after_receiver = token.balance(&receiver);
@@ -327,13 +327,13 @@ const stateSnippets: PropTestSnippet[] = [
     category: "state",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:key}_storage_roundtrip(value in ${2:0u32..=u32::MAX}) {
+    fn prop_\${1:key}_storage_roundtrip(value in \${2:0u32..=u32::MAX}) {
         let env = Env::default();
-        let contract_id = env.register(${3:MyContract}, ());
-        let client = ${3:MyContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${3:MyContract}, ());
+        let client = \${3:MyContract}Client::new(&env, &contract_id);
 
-        client.${4:set_value}(&value);
-        let stored = client.${5:get_value}();
+        client.\${4:set_value}(&value);
+        let stored = client.\${5:get_value}();
 
         prop_assert_eq!(stored, value, "stored value must equal written value");
         $0
@@ -352,21 +352,21 @@ const stateSnippets: PropTestSnippet[] = [
     category: "state",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:init}_is_not_idempotent(admin_seed in 0u64..=u64::MAX) {
+    fn prop_\${1:init}_is_not_idempotent(admin_seed in 0u64..=u64::MAX) {
         let env = Env::default();
         env.mock_all_auths();
         env.ledger().with_mut(|li| li.sequence_number = admin_seed);
 
         let admin = Address::generate(&env);
-        let contract_id = env.register(${2:MyContract}, ());
-        let client = ${2:MyContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${2:MyContract}, ());
+        let client = \${2:MyContract}Client::new(&env, &contract_id);
 
         // First init must succeed
-        client.${3:initialize}(&admin);
+        client.\${3:initialize}(&admin);
 
         // Second init must panic
         let result = std::panic::catch_unwind(|| {
-            client.${3:initialize}(&admin);
+            client.\${3:initialize}(&admin);
         });
         prop_assert!(result.is_err(), "double-init must panic");
         $0
@@ -385,15 +385,15 @@ const stateSnippets: PropTestSnippet[] = [
     category: "state",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:counter}_is_monotonic(steps in 1usize..=50usize) {
+    fn prop_\${1:counter}_is_monotonic(steps in 1usize..=50usize) {
         let env = Env::default();
-        let contract_id = env.register(${2:MyContract}, ());
-        let client = ${2:MyContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${2:MyContract}, ());
+        let client = \${2:MyContract}Client::new(&env, &contract_id);
 
-        let mut prev = client.${3:get_count}();
+        let mut prev = client.\${3:get_count}();
         for _ in 0..steps {
-            client.${4:increment}();
-            let next = client.${3:get_count}();
+            client.\${4:increment}();
+            let next = client.\${3:get_count}();
             prop_assert!(
                 next >= prev,
                 "counter must be monotonically non-decreasing: prev={} next={}",
@@ -417,14 +417,14 @@ const stateSnippets: PropTestSnippet[] = [
     category: "state",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:ttl}_extension_bounded(
-        extend_to in ${2:100u32}..=${3:10_000u32},
+    fn prop_\${1:ttl}_extension_bounded(
+        extend_to in \${2:100u32}..=\${3:10_000u32},
     ) {
         let env = Env::default();
-        let contract_id = env.register(${4:MyContract}, ());
-        let client = ${4:MyContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${4:MyContract}, ());
+        let client = \${4:MyContract}Client::new(&env, &contract_id);
 
-        client.${5:do_work}();
+        client.\${5:do_work}();
 
         // After any operation the TTL must be at least the minimum
         let ttl = env
@@ -432,7 +432,7 @@ const stateSnippets: PropTestSnippet[] = [
             .instance()
             .get_ttl();
         prop_assert!(
-            ttl >= ${2:100u32},
+            ttl >= \${2:100u32},
             "TTL must be at least the minimum threshold, got {}",
             ttl
         );
@@ -457,7 +457,7 @@ const compositeSnippets: PropTestSnippet[] = [
     category: "composite",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:auction}_highest_bid_wins(
+    fn prop_\${1:auction}_highest_bid_wins(
         bid_a in 1i128..=500_000i128,
         bid_b in 1i128..=500_000i128,
     ) {
@@ -476,18 +476,18 @@ const compositeSnippets: PropTestSnippet[] = [
         token::StellarAssetClient::new(&env, &token_id)
             .mint(&bidder_b, &bid_b);
 
-        let contract_id = env.register(${2:AuctionContract}, ());
-        let client = ${2:AuctionContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${2:AuctionContract}, ());
+        let client = \${2:AuctionContract}Client::new(&env, &contract_id);
 
-        client.${3:create_auction}(&seller, &token_id, &1i128, &token_id, &1i128, &3600u64);
-        client.${4:place_bid}(&bidder_a, &bid_a);
-        client.${4:place_bid}(&bidder_b, &bid_b);
+        client.\${3:create_auction}(&seller, &token_id, &1i128, &token_id, &1i128, &3600u64);
+        client.\${4:place_bid}(&bidder_a, &bid_a);
+        client.\${4:place_bid}(&bidder_b, &bid_b);
 
         env.ledger().with_mut(|li| li.timestamp += 3601);
-        client.${5:settle}();
+        client.\${5:settle}();
 
         let expected_winner = if bid_b >= bid_a { &bidder_b } else { &bidder_a };
-        let winner = client.${6:get_winner}();
+        let winner = client.\${6:get_winner}();
         prop_assert_eq!(&winner, expected_winner, "highest bidder must win");
         $0
     }
@@ -505,7 +505,7 @@ const compositeSnippets: PropTestSnippet[] = [
     category: "composite",
     insertText: `proptest! {
     #[test]
-    fn prop_${1:escrow}_amount_conserved(amount in 1u128..=1_000_000u128) {
+    fn prop_\${1:escrow}_amount_conserved(amount in 1u128..=1_000_000u128) {
         let env = Env::default();
         env.mock_all_auths();
 
@@ -513,15 +513,15 @@ const compositeSnippets: PropTestSnippet[] = [
         let payee   = Address::generate(&env);
         let arbiter = Address::generate(&env);
 
-        let contract_id = env.register(${2:EscrowContract}, ());
-        let client = ${2:EscrowContract}Client::new(&env, &contract_id);
+        let contract_id = env.register(\${2:EscrowContract}, ());
+        let client = \${2:EscrowContract}Client::new(&env, &contract_id);
 
         let now = env.ledger().timestamp();
-        let id = client.${3:deposit}(&payer, &payee, &arbiter, &amount, &now, &1u32);
+        let id = client.\${3:deposit}(&payer, &payee, &arbiter, &amount, &now, &1u32);
 
         // Release path: payee should receive the full amount
-        client.${4:release}(&id, &payer);
-        let escrow = client.${5:get_escrow}(&id);
+        client.\${4:release}(&id, &payer);
+        let escrow = client.\${5:get_escrow}(&id);
         prop_assert_eq!(escrow.amount, amount, "released amount must match deposited amount");
         $0
     }
@@ -555,21 +555,21 @@ mod prop_tests {
     // Override with PROPTEST_CASES=1000 cargo test for thorough local runs.
     proptest! {
         #![proptest_config(ProptestConfig {
-            cases: ${1:64},
-            max_shrink_iters: ${2:512},
+            cases: \${1:64},
+            max_shrink_iters: \${2:512},
             ..ProptestConfig::default()
         })]
 
         #[test]
-        fn prop_${3:example}(value in ${4:0u32..=1_000u32}) {
+        fn prop_\${3:example}(value in \${4:0u32..=1_000u32}) {
             let env = Env::default();
             env.mock_all_auths();
 
-            let contract_id = env.register(${5:MyContract}, ());
-            let client = ${5:MyContract}Client::new(&env, &contract_id);
+            let contract_id = env.register(\${5:MyContract}, ());
+            let client = \${5:MyContract}Client::new(&env, &contract_id);
 
             // TODO: call contract and assert invariants
-            let result = client.${6:my_fn}(&value);
+            let result = client.\${6:my_fn}(&value);
             prop_assert!(result >= 0, "result must be non-negative");
             $0
         }
@@ -588,7 +588,7 @@ mod prop_tests {
     category: "harness",
     insertText: `[dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-proptest    = { version = "${1:1}", default-features = false, features = ["alloc"] }
+proptest    = { version = "\${1:1}", default-features = false, features = ["alloc"] }
 $0`,
     get previewText() {
       return stripTabStops(this.insertText);
