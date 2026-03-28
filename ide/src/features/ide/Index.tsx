@@ -17,12 +17,13 @@ import { SecurityView } from "@/components/ide/SecurityView";
 import { TestingView, TemplatesView } from "@/components/ide/TestingView";
 import { GeneratePropertyTest } from "@/components/Testing/GeneratePropertyTest";
 import { useProptestOutputWatcher } from "@/hooks/useProptestOutputWatcher";
+import { ProptestView } from "@/components/Panels/ProptestView";
 import { EventsPane } from "@/components/ide/EventsPane";
 import { StatusBar } from "@/components/ide/StatusBar";
 import { Terminal } from "@/components/ide/Terminal";
 // import TestExplorer from "@/components/ide/TestExplorer";
 import XdrInspector from "@/components/tools/XdrInspector";
-// import { Toolbar } from "@/components/ide/Toolbar";
+import { Toolbar } from "@/components/ide/Toolbar";
 import { OutlineView } from "@/components/sidebar/OutlineView";
 // import { ActivityBar } from "@/components/layout/ActivityBar";
 import { type NetworkKey } from "@/lib/networkConfig";
@@ -540,7 +541,7 @@ export default function Index() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      {/* <Toolbar
+      <Toolbar
         onCompile={handleCompile}
         onDeploy={handleDeploy}
         onTest={handleTest}
@@ -552,7 +553,7 @@ export default function Index() {
         isRunningClippy={isRunningClippy}
         onRunAudit={handleRunAudit}
         isRunningAudit={isRunningAudit}
-      /> */}
+      />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* <ActivityBar

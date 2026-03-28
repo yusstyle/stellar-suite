@@ -164,8 +164,9 @@ export class DefinitionProvider {
   }
 
   public registerOnDefinitionHandler(monaco: typeof Monaco) {
+    if (!this.editor) return;
     // Register command for Ctrl+Click / Cmd+Click
-    monaco.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F1, () => {
+    this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F1, () => {
       if (!this.editor) return;
 
       const position = this.editor.getPosition();

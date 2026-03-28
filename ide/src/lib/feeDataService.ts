@@ -67,7 +67,7 @@ export class FeeDataService {
   }
 
   async getCurrentFeeStats(network: NetworkKey): Promise<FeeStats> {
-    const horizonUrl = NETWORK_CONFIG[network].horizon;
+    const horizonUrl = NETWORK_CONFIG[network].horizonUrl;
     const response = await fetch(`${horizonUrl}/fee_stats`);
     
     if (!response.ok) {
@@ -85,7 +85,7 @@ export class FeeDataService {
       return cached.data;
     }
 
-    const horizonUrl = NETWORK_CONFIG[network].horizon;
+    const horizonUrl = NETWORK_CONFIG[network].horizonUrl;
     const response = await fetch(`${horizonUrl}/ledgers?order=desc&limit=${limit}`);
     
     if (!response.ok) {

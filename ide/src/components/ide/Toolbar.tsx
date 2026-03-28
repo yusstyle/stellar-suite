@@ -13,7 +13,7 @@ import {
   FileCode2,
   Database,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { BuildButton } from "@/components/ide/BuildButton";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { type NetworkKey } from "@/lib/networkConfig";
 import ImportGithubModal from "@/components/ide/ImportGithubModal";
 import CiConfigGenerator from "@/components/modals/CiConfigGenerator";
 import StateMockEditor from "@/components/modals/StateMockEditor";
+import { SettingsModal } from "@/components/ide/SettingsModal";
 import { WalletManager } from "@/components/WalletManager";
 import { useWorkspaceStore } from "@/store/workspaceStore";
 
@@ -79,10 +80,19 @@ export function Toolbar({
   const [importOpen, setImportOpen] = useState(false);
   const [ciOpen, setCiOpen] = useState(false);
   const [stateEditorOpen, setStateEditorOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const hasMockState = mockLedgerState.entries.length > 0;
+
+  // Allow CommandPalette and StatusBar to open the settings modal via a custom event
+  useEffect(() => {
+    const handler = () => setSettingsOpen(true);
+    window.addEventListener("ide:open-settings", handler);
+    return () => window.removeEventListener("ide:open-settings", handler);
+  }, []);
 
   return (
     <div className="border-b border-border bg-toolbar-bg">
+      {/* ── Desktop toolbar ── */}
       <div className="hidden items-center justify-between px-3 py-1.5 md:flex">
         <div className="flex items-center gap-2">
           <span className="mr-2 font-mono text-sm font-semibold text-primary">Kit CANVAS</span>
@@ -121,6 +131,8 @@ export function Toolbar({
           <Button onClick={() => setCiOpen(true)} variant="ghost" size="sm" className="h-8 gap-1.5 text-xs">
             <FileCode2 className="h-3.5 w-3.5" />
             Export CI
+          </Button>
+
           <Button
             onClick={() => setStateEditorOpen(true)}
             variant="ghost"
@@ -150,12 +162,18 @@ export function Toolbar({
             </select>
           </label>
           <WalletManager />
-          <button className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" title="Settings" aria-label="Settings">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Settings"
+            aria-label="Settings"
+          >
             <Settings className="h-4 w-4" />
           </button>
         </div>
       </div>
 
+      {/* ── Mobile toolbar ── */}
       <div className="flex items-center justify-between px-2 py-1.5 md:hidden">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs font-semibold text-primary">Kit CANVAS</span>
@@ -187,6 +205,7 @@ export function Toolbar({
         </div>
       </div>
 
+      {/* ── Mobile expanded menu ── */}
       {mobileMenuOpen ? (
         <div className="flex flex-col gap-2 border-b border-border px-2 pb-2 md:hidden">
           <Button
@@ -279,6 +298,10 @@ export function Toolbar({
           >
             <FileCode2 className="h-3 w-3" />
             Export CI
+          </Button>
+
+          <Button
+            variant="outline"
             className={`h-9 flex-1 gap-1 text-[11px] ${hasMockState ? "text-primary" : ""}`}
             onClick={() => {
               setStateEditorOpen(true);
@@ -288,18 +311,30 @@ export function Toolbar({
             <Database className="h-3 w-3" />
             Mock State
           </Button>
+
+          <Button
+            variant="outline"
+            className="h-9 flex-1 gap-1 text-[11px]"
+            onClick={() => {
+              setSettingsOpen(true);
+              setMobileMenuOpen(false);
+            }}
+          >
+            <Settings className="h-3 w-3" />
+            Settings
+          </Button>
         </div>
       ) : null}
 
       <ImportGithubModal open={importOpen} onClose={() => setImportOpen(false)} />
       <CiConfigGenerator open={ciOpen} onOpenChange={setCiOpen} />
-
       <StateMockEditor
         open={stateEditorOpen}
         onOpenChange={setStateEditorOpen}
         value={mockLedgerState}
         onSave={setMockLedgerState}
       />
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }
