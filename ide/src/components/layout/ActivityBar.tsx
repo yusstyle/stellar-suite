@@ -16,6 +16,7 @@ import {
   FileSearch,
   Binary,
   BarChart2,
+  GitMerge,
 } from "lucide-react";
 import { ReactNode } from "react";
 
@@ -24,6 +25,7 @@ export type ActivityTab =
   | "git"
   | "deployments"
   | "identities"
+  | "multisig"
   | "search"
   | "security"
   | "tests"
@@ -73,6 +75,12 @@ const tabs: ActivityBarTab[] = [
     icon: <Users className="h-5 w-5" />,
     label: "Users",
     title: "Identities",
+  },
+  {
+    id: "multisig",
+    icon: <GitMerge className="h-5 w-5" />,
+    label: "Multisig",
+    title: "Multisig Transaction Builder",
   },
   {
     id: "search",

@@ -14,6 +14,7 @@ import { BinaryDiffTool } from "@/features/ide/BinaryDiffTool";
 import { ContractPanel } from "@/components/ide/ContractPanel";
 import { DeploymentStepper } from "@/components/ide/DeploymentStepper";
 import { DeploymentsView } from "@/components/ide/DeploymentsView";
+import { MultisigView } from "@/components/ide/MultisigView";
 import { GitPane } from "@/components/ide/GitPane";
 import { DiffEditorPane } from "@/components/editor/DiffEditorPane";
 // import { EditorTabs } from "@/components/ide/EditorTabs";
@@ -997,6 +998,7 @@ export default function Index() {
             ) : null}
             {leftSidebarTab === "inspector" ? <InspectorPane /> : null}
             {leftSidebarTab === "benchmarks" ? <BenchmarkDashboard /> : null}
+            {leftSidebarTab === "multisig" ? <MultisigView network={network} /> : null}
           </aside>
         ) : null}
 
