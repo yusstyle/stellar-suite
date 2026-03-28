@@ -1,0 +1,348 @@
+﻿import {
+  DEFAULT_CUSTOM_RPC,
+  NETWORK_CONFIG,
+  type CustomHeaders,
+  NetworkKey,
+} from "@/lib/networkConfig";
+import { FileNode, sampleContracts } from "@/lib/sample-contracts";
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { idbStorage } from "@/utils/idbStorage";
+
+interface TabInfo {
+  path: string[];
+  name: string;
+}
+
+export type MobilePanel =
+  | "none"
+  | "explorer"
+  | "interact"
+  | "deployments"
+  | "identities"
+  | "security";
+export type SidebarTab =
+  | "explorer"
+  | "git"
+  | "deployments"
+  | "identities"
+  | "search"
+  | "security"
+  | "tests"
+  | "fuzzing"
+  | "outline"
+  | "inspector"
+  | "references"
+  | "binary-diff";
+export type BuildState = "idle" | "building" | "success" | "error";
+
+export interface WorkspaceTextFile {
+  path: string;
+  content: string;
+}
+
+export type MockLedgerEntryType = "account" | "contractData" | "tokenBalance";
+
+export interface MockLedgerEntry {
+  id: string;
+  type: MockLedgerEntryType;
+  key: string;
+  value: string;
+  metadata?: Record<string, string>;
+}
+
+export interface MockLedgerState {
+  entries: MockLedgerEntry[];
+}
+
+interface WorkspaceState {
+  files: FileNode[];
+  openTabs: TabInfo[];
+  activeTabPath: string[];
+  unsavedFiles: Set<string>;
+  network: NetworkKey;
+  horizonUrl: string;
+  networkPassphrase: string;
+  customRpcUrl: string;
+  customHeaders: CustomHeaders;
+  terminalExpanded: boolean;
+  terminalOutput: string;
+  isCompiling: boolean;
+  buildState: BuildState;
+  contractId: string | null;
+  showExplorer: boolean;
+  showPanel: boolean;
+  cursorPos: { line: number; col: number };
+  saveStatus: string;
+  mobilePanel: MobilePanel;
+  isExplorerDragActive: boolean;
+  leftSidebarTab: SidebarTab;
+  mockLedgerState: MockLedgerState;
+  diffViewPath: string[] | null;
+  hydrationComplete: boolean;
+  setFiles: (files: FileNode[]) => void;
+  setActiveTabPath: (path: string[]) => void;
+  setOpenTabs: (tabs: TabInfo[]) => void;
+  addTab: (path: string[], name: string) => void;
+  closeTab: (path: string[]) => void;
+  updateFileContent: (path: string[], content: string) => void;
+  markSaved: (path: string[]) => void;
+  createFile: (parentPath: string[], name: string, content?: string) => void;
+  createFolder: (parentPath: string[], name: string) => void;
+  deleteNode: (path: string[]) => void;
+  renameNode: (path: string[], newName: string) => void;
+  setNetwork: (network: NetworkKey) => void;
+  setHorizonUrl: (url: string) => void;
+  setNetworkPassphrase: (passphrase: string) => void;
+  setCustomRpcUrl: (url: string) => void;
+  setCustomHeaders: (headers: CustomHeaders) => void;
+  setTerminalExpanded: (expanded: boolean | ((prev: boolean) => boolean)) => void;
+  setTerminalOutput: (output: string | ((prev: string) => string)) => void;
+  setIsCompiling: (isCompiling: boolean) => void;
+  setBuildState: (state: BuildState) => void;
+  setContractId: (id: string | null) => void;
+  setShowExplorer: (show: boolean) => void;
+  setShowPanel: (show: boolean) => void;
+  setCursorPos: (pos: { line: number; col: number }) => void;
+  setSaveStatus: (status: string) => void;
+  setMobilePanel: (panel: MobilePanel) => void;
+  setIsExplorerDragActive: (active: boolean) => void;
+  setLeftSidebarTab: (tab: SidebarTab) => void;
+  setMockLedgerState: (state: MockLedgerState) => void;
+  clearMockLedgerState: () => void;
+  appendTerminalOutput: (chunk: string) => void;
+  setDiffViewPath: (path: string[] | null) => void;
+  setHydrationComplete: (ready: boolean) => void;
+}
+
+const cloneFiles = (files: FileNode[]): FileNode[] =>
+  JSON.parse(JSON.stringify(files));
+
+const findNode = (nodes: FileNode[], pathParts: string[]): FileNode | null => {
+  for (const node of nodes) {
+    if (node.name === pathParts[0]) {
+      if (pathParts.length === 1) return node;
+      if (node.children) return findNode(node.children, pathParts.slice(1));
+    }
+  }
+  return null;
+};
+
+const findParent = (nodes: FileNode[], pathParts: string[]): FileNode[] | null => {
+  if (pathParts.length <= 1) return nodes;
+  const parent = findNode(nodes, pathParts.slice(0, -1));
+  return parent?.children ?? null;
+};
+
+export function flattenWorkspaceFiles(
+  nodes: FileNode[],
+  parentPath: string[] = []
+): WorkspaceTextFile[] {
+  const result: WorkspaceTextFile[] = [];
+  for (const node of nodes) {
+    const nextPath = [...parentPath, node.name];
+    if (node.type === "folder" && node.children) {
+      result.push(...flattenWorkspaceFiles(node.children, nextPath));
+    } else if (node.type === "file") {
+      result.push({ path: nextPath.join("/"), content: node.content ?? "" });
+    }
+  }
+  return result;
+}
+
+export const useWorkspaceStore = create<WorkspaceState>()(
+  persist(
+    (set, get) => ({
+      files: cloneFiles(sampleContracts),
+      openTabs: [{ path: ["hello_world", "lib.rs"], name: "lib.rs" }],
+      activeTabPath: ["hello_world", "lib.rs"],
+      unsavedFiles: new Set<string>(),
+      network: "testnet",
+      horizonUrl: NETWORK_CONFIG.testnet.horizon,
+      networkPassphrase: NETWORK_CONFIG.testnet.passphrase,
+      customRpcUrl: DEFAULT_CUSTOM_RPC,
+      customHeaders: {},
+      terminalExpanded: true,
+      terminalOutput: "",
+      isCompiling: false,
+      buildState: "idle",
+      contractId: null,
+      showExplorer: true,
+      showPanel: true,
+      cursorPos: { line: 1, col: 1 },
+      saveStatus: "",
+      mobilePanel: "none",
+      isExplorerDragActive: false,
+      leftSidebarTab: "explorer",
+      mockLedgerState: { entries: [] },
+      diffViewPath: null,
+      hydrationComplete: false,
+      setFiles: (files) => set({ files }),
+      setActiveTabPath: (path) => set({ activeTabPath: path }),
+      setOpenTabs: (tabs) => set({ openTabs: tabs }),
+      addTab: (path, name) => {
+        const key = path.join("/");
+        const { openTabs } = get();
+        if (!openTabs.some((t) => t.path.join("/") === key)) {
+          set({ openTabs: [...openTabs, { path, name }] });
+        }
+        set({ activeTabPath: path });
+      },
+      closeTab: (path) => {
+        const key = path.join("/");
+        const { openTabs, activeTabPath, unsavedFiles } = get();
+        const nextTabs = openTabs.filter((t) => t.path.join("/") !== key);
+        let nextActivePath = activeTabPath;
+        if (activeTabPath.join("/") === key && nextTabs.length > 0) {
+          nextActivePath = nextTabs[nextTabs.length - 1].path;
+        } else if (nextTabs.length === 0) {
+          nextActivePath = [];
+        }
+        const nextUnsaved = new Set(unsavedFiles);
+        nextUnsaved.delete(key);
+        set({ openTabs: nextTabs, activeTabPath: nextActivePath, unsavedFiles: nextUnsaved });
+      },
+      updateFileContent: (path, content) => {
+        const key = path.join("/");
+        const { files, unsavedFiles } = get();
+        const nextFiles = cloneFiles(files);
+        const node = findNode(nextFiles, path);
+        if (node) {
+          node.content = content;
+          const nextUnsaved = new Set(unsavedFiles);
+          nextUnsaved.add(key);
+          set({ files: nextFiles, unsavedFiles: nextUnsaved });
+        }
+      },
+      markSaved: (path) => {
+        const key = path.join("/");
+        const { unsavedFiles } = get();
+        const nextUnsaved = new Set(unsavedFiles);
+        nextUnsaved.delete(key);
+        set({ unsavedFiles: nextUnsaved });
+      },
+      createFile: (parentPath, name, content = "") => {
+        const { files } = get();
+        const nextFiles = cloneFiles(files);
+        const parent = parentPath.length === 0 ? nextFiles : findNode(nextFiles, parentPath)?.children;
+        if (parent) {
+          parent.push({
+            name,
+            type: "file",
+            language: name.endsWith(".rs") ? "rust" : name.endsWith(".toml") ? "toml" : "text",
+            content,
+          });
+          set({ files: nextFiles });
+          get().addTab([...parentPath, name], name);
+        }
+      },
+      createFolder: (parentPath, name) => {
+        const { files } = get();
+        const nextFiles = cloneFiles(files);
+        const parent = parentPath.length === 0 ? nextFiles : findNode(nextFiles, parentPath)?.children;
+        if (parent) {
+          parent.push({ name, type: "folder", children: [] });
+          set({ files: nextFiles });
+        }
+      },
+      deleteNode: (path) => {
+        const { files } = get();
+        const nextFiles = cloneFiles(files);
+        const parent = findParent(nextFiles, path);
+        if (parent) {
+          const idx = parent.findIndex((n) => n.name === path[path.length - 1]);
+          if (idx !== -1) {
+            parent.splice(idx, 1);
+            set({ files: nextFiles });
+            get().closeTab(path);
+          }
+        }
+      },
+      renameNode: (path, newName) => {
+        const { files, openTabs, activeTabPath } = get();
+        const oldKey = path.join("/");
+        const nextPath = [...path.slice(0, -1), newName];
+        const nextFiles = cloneFiles(files);
+        const node = findNode(nextFiles, path);
+        if (node) {
+          node.name = newName;
+          const nextTabs = openTabs.map((t) => {
+            const tKey = t.path.join("/");
+            if (tKey === oldKey || tKey.startsWith(oldKey + "/")) {
+              const updatedPath = [...nextPath, ...t.path.slice(path.length)];
+              return { ...t, path: updatedPath, name: updatedPath[updatedPath.length - 1] };
+            }
+            return t;
+          });
+          let nextActivePath = activeTabPath;
+          if (activeTabPath.join("/") === oldKey || activeTabPath.join("/").startsWith(oldKey + "/")) {
+            nextActivePath = [...nextPath, ...activeTabPath.slice(path.length)];
+          }
+          set({ files: nextFiles, openTabs: nextTabs, activeTabPath: nextActivePath });
+        }
+      },
+      setNetwork: (network) => {
+        const config = NETWORK_CONFIG[network] || NETWORK_CONFIG.testnet;
+        const currentCustomRpc = get().customRpcUrl || DEFAULT_CUSTOM_RPC;
+        const horizonUrl = network === "local" ? currentCustomRpc : config.horizon;
+        set({ network, horizonUrl, networkPassphrase: config.passphrase });
+      },
+      setHorizonUrl: (url) => set({ horizonUrl: url }),
+      setNetworkPassphrase: (passphrase) => set({ networkPassphrase: passphrase }),
+      setCustomRpcUrl: (customRpcUrl) => {
+        set({ customRpcUrl });
+        if (get().network === "local") set({ horizonUrl: customRpcUrl });
+      },
+      setCustomHeaders: (customHeaders) => set({ customHeaders }),
+      setTerminalExpanded: (expanded) =>
+        set((state) => ({
+          terminalExpanded: typeof expanded === "function" ? expanded(state.terminalExpanded) : expanded,
+        })),
+      setTerminalOutput: (output) =>
+        set((state) => ({
+          terminalOutput: typeof output === "function" ? output(state.terminalOutput) : output,
+        })),
+      setIsCompiling: (isCompiling) => set({ isCompiling }),
+      setBuildState: (buildState) => set({ buildState }),
+      setContractId: (contractId) => set({ contractId }),
+      setShowExplorer: (showExplorer) => set({ showExplorer }),
+      setShowPanel: (showPanel) => set({ showPanel }),
+      setCursorPos: (cursorPos) => set({ cursorPos }),
+      setSaveStatus: (saveStatus) => set({ saveStatus }),
+      setMobilePanel: (mobilePanel) => set({ mobilePanel }),
+      setIsExplorerDragActive: (isExplorerDragActive) => set({ isExplorerDragActive }),
+      setLeftSidebarTab: (leftSidebarTab) => set({ leftSidebarTab }),
+      setMockLedgerState: (mockLedgerState) => set({ mockLedgerState }),
+      clearMockLedgerState: () => set({ mockLedgerState: { entries: [] } }),
+      appendTerminalOutput: (chunk) =>
+        set((state) => ({ terminalOutput: state.terminalOutput + chunk })),
+      setDiffViewPath: (diffViewPath) => set({ diffViewPath }),
+      setHydrationComplete: (ready) => set({ hydrationComplete: ready }),
+    }),
+    {
+      name: "stellar-suite-workspace-store",
+      // Persist workspace files to IndexedDB instead of localStorage.
+      // IndexedDB handles large file trees without the ~5MB localStorage limit.
+      storage: createJSONStorage(() => idbStorage),
+      partialize: (state) => ({
+        network: state.network,
+        customRpcUrl: state.customRpcUrl,
+        customHeaders: state.customHeaders,
+        showExplorer: state.showExplorer,
+        showPanel: state.showPanel,
+        terminalExpanded: state.terminalExpanded,
+        files: state.files,
+        openTabs: state.openTabs,
+        activeTabPath: state.activeTabPath,
+        mockLedgerState: state.mockLedgerState,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // If IDB was empty (first load), files defaults to sampleContracts.
+          // Either way, mark hydration complete so the IDE shell can render.
+          state.setHydrationComplete(true);
+        }
+      },
+    },
+  ),
+);
