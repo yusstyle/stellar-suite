@@ -424,10 +424,6 @@ export function TemplatesView() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// TestingView — Proptest snippet browser
-// ---------------------------------------------------------------------------
-
 export function TestingView() {
   const { activeTabPath, files, updateFileContent } = useWorkspaceStore();
 

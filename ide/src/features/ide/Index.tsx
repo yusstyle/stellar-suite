@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PanelRightClose, PanelRightOpen } from "lucide-react";
+import {
+  PanelRightClose,
+  PanelRightOpen,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import CodeEditor from "@/components/ide/CodeEditor";
 import { ContractPanel } from "@/components/ide/ContractPanel";
+import { DeploymentStepper } from "@/components/ide/DeploymentStepper";
 import { DeploymentsView } from "@/components/ide/DeploymentsView";
 import { GitPane } from "@/components/ide/GitPane";
 import { DiffEditorPane } from "@/components/editor/DiffEditorPane";
@@ -19,6 +24,7 @@ import { GeneratePropertyTest } from "@/components/Testing/GeneratePropertyTest"
 import { useProptestOutputWatcher } from "@/hooks/useProptestOutputWatcher";
 import { ProptestView } from "@/components/Panels/ProptestView";
 import { EventsPane } from "@/components/ide/EventsPane";
+import { InspectorPane } from "@/components/ide/InspectorPane";
 import { StatusBar } from "@/components/ide/StatusBar";
 import { Terminal } from "@/components/ide/Terminal";
 import { TestResultsLog } from "@/components/terminal/TestResultsLog";
@@ -27,13 +33,20 @@ import XdrInspector from "@/components/tools/XdrInspector";
 // import { Toolbar } from "@/components/ide/Toolbar";
 import { OutlineView } from "@/components/sidebar/OutlineView";
 // import { ActivityBar } from "@/components/layout/ActivityBar";
+import { StarterProjectWizard } from "@/components/modals/StarterProjectWizard";
 import { type NetworkKey } from "@/lib/networkConfig";
+import { ActivityBar } from "@/components/layout/ActivityBar";
+import { NETWORK_CONFIG, type NetworkKey } from "@/lib/networkConfig";
 import { type FileNode } from "@/lib/sample-contracts";
+import { instantiateContract } from "@/lib/contractInstantiator";
 import { useDeployedContractsStore } from "@/store/useDeployedContractsStore";
+import { useDeploymentStore } from "@/store/useDeploymentStore";
 import { useDiagnosticsStore } from "@/store/useDiagnosticsStore";
 import { useIdentityStore } from "@/store/useIdentityStore";
 import { useWorkspaceStore, flattenWorkspaceFiles } from "@/store/workspaceStore";
 import { useVCSStore } from "@/store/vcsStore";
+import { useErrorHelpStore } from "@/store/useErrorHelpStore";
+import ErrorHelpPanel from "@/components/ide/ErrorHelpPanel";
 import { parseCargoAuditOutput } from "@/utils/cargoAuditParser";
 import { parseMixedOutput } from "@/utils/cargoParser";
 import { parseClippyOutput, type ClippyLint } from "@/utils/clippyParser";
@@ -190,8 +203,32 @@ export default function Index() {
     useVCSStore();
   const { setDiagnostics, clearDiagnostics } = useDiagnosticsStore();
   const { addContract } = useDeployedContractsStore();
+  const { isOpen: isErrorHelpOpen, errorCode, closeErrorHelp } = useErrorHelpStore();
+  const {
+    isDeployModalOpen,
+    deploymentStep,
+    deploymentError,
+    pendingWasmHash,
+    openDeployModal,
+    closeDeployModal,
+    setDeploymentStep,
+    setDeploymentError,
+    setPendingWasmHash,
+    resetDeployment,
+  } = useDeploymentStore();
+
+  // Contract ID produced by the current deployment (shown in stepper on success)
+  const [deployedContractId, setDeployedContractId] = useState<string | null>(null);
 
   const [bottomTab, setBottomTab] = useState<"console" | "events" | "proptest">("console");
+
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  useEffect(() => {
+    if (files.length === 0) {
+      setWizardOpen(true);
+    }
+  }, [files.length]);
 
   const [invokeState, setInvokeState] = useState<{
     phase: "idle" | "preparing" | "success" | "failed";
@@ -463,25 +500,134 @@ export default function Index() {
     [appendTerminalOutput, files, updateFileContent],
   );
 
-  const handleDeploy = useCallback(() => {
-    setTerminalExpanded(true);
-    appendTerminalOutput(`Deploying to ${network}...\r\n`);
+  /**
+   * Run the instantiation step (step 2) given an already-uploaded WASM hash.
+   * Extracted so it can be called both from the sequential flow and from
+   * the "Retry instantiation" button in the stepper.
+   */
+  const runInstantiate = useCallback(
+    async (wasmHash: string) => {
+      const rpcUrl =
+        network === "local"
+          ? useWorkspaceStore.getState().customRpcUrl
+          : NETWORK_CONFIG[network as NetworkKey]?.horizon ??
+            "https://soroban-testnet.stellar.org:443";
+      const networkPassphrase =
+        NETWORK_CONFIG[network as NetworkKey]?.passphrase ??
+        "Test SDF Network ; September 2015";
 
-    setTimeout(() => {
-      const fullId =
-        `CD${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
-          .substring(0, 56)
-          .toUpperCase();
-      setContractId(fullId);
-      addContract(fullId, network, contractName);
-      appendTerminalOutput(`✓ Contract deployed! ID: ${fullId}\r\n`);
-    }, 1200);
+      setDeploymentStep("instantiating");
+      appendTerminalOutput("> Instantiating contract from WASM hash…\r\n");
+
+      const { contractId: newContractId, transactionHash } =
+        await instantiateContract({
+          wasmHash,
+          rpcUrl,
+          networkPassphrase,
+          activeContext,
+          activeIdentity,
+          webWalletPublicKey: null,
+          walletType: null,
+          onStatus: (s) => {
+            appendTerminalOutput(`  [instantiate] ${s.message}\r\n`);
+          },
+        });
+
+      setContractId(newContractId);
+      setDeployedContractId(newContractId);
+      addContract(newContractId, network as NetworkKey, contractName);
+      setPendingWasmHash(null);
+
+      appendTerminalOutput(`✓ Contract instantiated! ID: ${newContractId}\r\n`);
+      appendTerminalOutput(`  Transaction: ${transactionHash}\r\n`);
+
+      setDeploymentStep("success");
+      toast.success(`Contract deployed: ${newContractId.substring(0, 8)}…`);
+    },
+    [
+      activeContext,
+      activeIdentity,
+      addContract,
+      appendTerminalOutput,
+      contractName,
+      network,
+      setContractId,
+      setDeploymentStep,
+      setPendingWasmHash,
+    ],
+  );
+
+  /**
+   * Full two-phase deployment:
+   *   Phase 1 — compile + upload WASM  → wasmHash
+   *   Phase 2 — createContract         → contractId (C...)
+   */
+  const handleDeploy = useCallback(async () => {
+    setDeployedContractId(null);
+    openDeployModal();
+    setDeploymentStep("simulating");
+    setDeploymentError(null);
+    setPendingWasmHash(null);
+    setTerminalExpanded(true);
+    appendTerminalOutput(`> Deploying to ${network}…\r\n`);
+
+    try {
+      // ── Phase 1: compile + upload WASM ──────────────────────────────────
+      setDeploymentStep("uploading");
+      appendTerminalOutput("> Compiling and uploading WASM…\r\n");
+
+      const response = await fetch(COMPILE_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(compilePayload),
+      });
+
+      const processor = createStreamProcessor({ onTerminalData: appendTerminalOutput });
+      const output = await readCompileResponse(response, processor);
+
+      if (!response.ok) {
+        throw new Error(output.trim() || `Build failed with status ${response.status}`);
+      }
+
+      // Extract WASM hash from compile output
+      let wasmHash: string | null = null;
+      try {
+        const parsed = JSON.parse(output) as { contractHash?: string | null };
+        wasmHash = parsed.contractHash ?? null;
+      } catch {
+        const match = output.match(/contract[_\s]?hash[:\s]+([a-f0-9]{64})/i);
+        wasmHash = match?.[1] ?? null;
+      }
+
+      if (!wasmHash) {
+        throw new Error(
+          "WASM uploaded but no contract hash was returned. " +
+            "Cannot proceed to instantiation.",
+        );
+      }
+
+      appendTerminalOutput(`✓ WASM uploaded. Hash: ${wasmHash}\r\n`);
+      // Persist hash so the user can retry instantiation without re-uploading
+      setPendingWasmHash(wasmHash);
+
+      // ── Phase 2: instantiate contract ───────────────────────────────────
+      await runInstantiate(wasmHash);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Deployment failed";
+      setDeploymentStep("error");
+      setDeploymentError(message);
+      appendTerminalOutput(`✗ Deployment failed: ${message}\r\n`);
+      toast.error(message);
+    }
   }, [
-    addContract,
     appendTerminalOutput,
-    contractName,
+    compilePayload,
     network,
-    setContractId,
+    openDeployModal,
+    runInstantiate,
+    setDeploymentError,
+    setDeploymentStep,
+    setPendingWasmHash,
     setTerminalExpanded,
   ]);
 
@@ -593,7 +739,7 @@ export default function Index() {
     <div className="flex h-screen flex-col overflow-hidden">
       {/* <Toolbar
         onCompile={handleCompile}
-        onDeploy={handleDeploy}
+        onDeploy={() => { void handleDeploy(); }}
         onTest={handleTest}
         isCompiling={isCompiling}
         buildState={buildState}
@@ -693,6 +839,7 @@ export default function Index() {
             ) : null}
             */}
             {leftSidebarTab === "git" ? <GitPane /> : null}
+            {leftSidebarTab === "inspector" ? <InspectorPane /> : null}
           </aside>
         ) : null}
 
@@ -761,6 +908,12 @@ export default function Index() {
         </main>
 
         <aside className="hidden md:flex">
+          {isErrorHelpOpen && errorCode ? (
+            <div className="w-96 shrink-0">
+              <ErrorHelpPanel errorCode={errorCode} onClose={closeErrorHelp} />
+            </div>
+          ) : null}
+
           {showPanel ? (
             <div className="w-80 border-l border-border bg-card">
               <ContractPanel
@@ -791,6 +944,25 @@ export default function Index() {
       <div className="hidden md:block">
         <StatusBar language={activeFileContext?.language} />
       </div>
+
+      <StarterProjectWizard open={wizardOpen} onOpenChange={setWizardOpen} />
+      {/* ── Deployment progress modal ──────────────────────────────── */}
+      <DeploymentStepper
+        open={isDeployModalOpen}
+        step={deploymentStep}
+        error={deploymentError}
+        contractId={deployedContractId}
+        pendingWasmHash={pendingWasmHash}
+        onClose={resetDeployment}
+        onRetryInstantiate={
+          pendingWasmHash
+            ? () => {
+                setDeploymentError(null);
+                void runInstantiate(pendingWasmHash);
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

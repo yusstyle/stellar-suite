@@ -1,0 +1,39 @@
+/* ── Git Gutter Markers ───────────────────────────────────────────────────── */
+/* Scoped styles for git diff decorations in the Monaco glyph margin.         */
+/* All rules use !important to survive Monaco theme overrides.                */
+
+/* Added lines — green bar */
+.git-line-added {
+  width: 3px !important;
+  background-color: #a6e3a1 !important; /* Catppuccin green */
+  margin-left: 2px !important;
+  border-radius: 1px !important;
+}
+
+/* Modified lines — blue bar */
+.git-line-modified {
+  width: 3px !important;
+  background-color: #89b4fa !important; /* Catppuccin blue */
+  margin-left: 2px !important;
+  border-radius: 1px !important;
+}
+
+/* Deleted lines — red downward triangle via CSS borders */
+.git-line-deleted {
+  width: 0 !important;
+  height: 0 !important;
+  border-left: 5px solid transparent !important;
+  border-right: 5px solid transparent !important;
+  border-top: 7px solid #f38ba8 !important; /* Catppuccin red */
+  margin-left: 1px !important;
+  margin-top: 6px !important;
+  background: transparent !important;
+  cursor: pointer !important;
+}
+
+/* Hover states */
+.git-line-added:hover,
+.git-line-modified:hover {
+  filter: brightness(1.2) !important;
+  cursor: pointer !important;
+}

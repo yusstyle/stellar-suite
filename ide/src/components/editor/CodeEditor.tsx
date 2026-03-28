@@ -5,6 +5,8 @@ import { useWorkspaceStore } from "@/store/workspaceStore";
 import { applyEditsToTree, computeRenameEdits, validateRustIdentifier } from "@/utils/renameProvider";
 import { useDiagnosticsStore as _useDiagnosticsStore } from "@/store/useDiagnosticsStore";
 import { useEditorStore } from "@/store/editorStore";
+import { useErrorHelpStore } from "@/store/useErrorHelpStore";
+import { extractErrorCode, hasErrorHelp } from "@/utils/errorCodeExtractor";
 import {
   createRustFoldingRangeProvider,
   RUST_FOLD_REGION_END,
@@ -15,11 +17,15 @@ import { definitionProvider } from "@/lib/definitionProvider";
 import { symbolIndexer } from "@/lib/symbolIndexer";
 import Editor, { OnChange, OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
-import React, { Suspense, useEffect, useRef } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { analyzeMathSafety } from "../../lib/mathSafetyAnalyzer";
 import { useMathSafetyStore } from "../../store/useMathSafetyStore";
 import { Breadcrumbs } from "./Breadcrumbs";
+import { GitBlameLines } from "./GitBlameLines";
 import { getAllMonacoCompletions } from "@/utils/proptestSnippets";
+import { GitGutterMarkers } from "./GitGutterMarkers";
+import { git } from "@/lib/git";
+import "@/styles/editor-gutter.css";
 
 interface CodeEditorProps {
   onCursorChange?: (line: number, col: number) => void;
@@ -32,11 +38,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
   const { config, setMathDiagnostics, getAllDiagnostics } = useMathSafetyStore();
   const { getFileCoverage } = useCoverageStore();
   const { setJumpToLine, saveViewState, getViewState } = useEditorStore();
+  const { openErrorHelp } = useErrorHelpStore();
   const rustProviderRegistered = useRef(false);
   const monacoRef = useRef<typeof Monaco | null>(null);
-  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
-  const semanticProviderRegistered = useRef(false);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);  const semanticProviderRegistered = useRef(false);
   const coverageDecorations = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
+  const codeActionProviderRegistered = useRef(false);
+
+  // Git gutter: track mounted editor/monaco and HEAD content for active file
+  const [mountedEditor, setMountedEditor] = useState<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const [mountedMonaco, setMountedMonaco] = useState<typeof Monaco | null>(null);
+  const [headContent, setHeadContent] = useState<string>("");
   const activeFileId = activeTabPath.join("/");
   const activeFileIdRef = useRef(activeFileId);
   // Keep a live ref to files so the rename provider always sees the latest state
@@ -72,6 +84,16 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
       }, 500);
     }
   };
+
+  // Fetch HEAD content for the active file whenever the path changes
+  useEffect(() => {
+    if (activeTabPath.length === 0) return;
+    let cancelled = false;
+    git.readTree(activeTabPath)
+      .then((content) => { if (!cancelled) setHeadContent(content); })
+      .catch(() => { if (!cancelled) setHeadContent(""); });
+    return () => { cancelled = true; };
+  }, [activeTabPath]);
 
   // Apply Monaco markers whenever diagnostics or active file changes
   useEffect(() => {
@@ -203,6 +225,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     monacoRef.current = monaco;
     editorRef.current = editor;
+    setMountedEditor(editor);
+    setMountedMonaco(monaco);
 
     // Initialize symbol indexer and definition provider
     symbolIndexer.indexFiles(files);
@@ -381,6 +405,51 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
           fontStyle: "italic",
         },
       ]);
+    }
+
+    // Register code action provider for error help
+    if (!codeActionProviderRegistered.current) {
+      codeActionProviderRegistered.current = true;
+
+      monaco.languages.registerCodeActionProvider("rust", {
+        provideCodeActions: (model, range, context) => {
+          const actions: Monaco.languages.CodeAction[] = [];
+
+          // Check if there are any diagnostics at this position
+          for (const marker of context.markers) {
+            // Extract error code from marker message
+            const errorCode = extractErrorCode(marker.message);
+
+            if (errorCode && hasErrorHelp(errorCode)) {
+              actions.push({
+                title: `💡 Learn More About ${errorCode}`,
+                kind: "quickfix",
+                diagnostics: [marker],
+                isPreferred: true,
+                command: {
+                  id: "stellar.openErrorHelp",
+                  title: "Open Error Help",
+                  arguments: [errorCode],
+                },
+              });
+            }
+          }
+
+          return {
+            actions,
+            dispose: () => {},
+          };
+        },
+      });
+
+      // Register the command to open error help
+      editor.addAction({
+        id: "stellar.openErrorHelp",
+        label: "Open Error Help",
+        run: (_editor, errorCode: string) => {
+          openErrorHelp(errorCode);
+        },
+      });
     }
 
     if (!rustProviderRegistered.current) {
@@ -566,6 +635,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">
       <Breadcrumbs />
+      <GitBlameLines
+        editor={editorRef.current}
+        monaco={monacoRef.current}
+        filePath={activeTabPath}
+      />
       <div
         id="tour-monaco"
         className="flex-1 w-full overflow-hidden relative border-t border-border"
@@ -612,6 +686,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ onCursorChange, onSave }) => {
                 "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
             }}
           />
+          {mountedEditor && mountedMonaco && (
+            <GitGutterMarkers
+              editor={mountedEditor}
+              monaco={mountedMonaco}
+              headContent={headContent}
+            />
+          )}
         </Suspense>
       </div>
     </div>

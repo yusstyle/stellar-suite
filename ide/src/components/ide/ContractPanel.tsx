@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { Rocket, ExternalLink, UserPlus, ShieldAlert, Key, Trash2, Braces, Download, ReceiptText, FileCode2 } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Rocket, ExternalLink, UserPlus, ShieldAlert, Key, Trash2, Braces, Download, ReceiptText, FileCode2, ChevronDown, ChevronRight } from "lucide-react";
 import { useIdentityStore } from "@/store/useIdentityStore";
 import { useFileStore } from "@/store/useFileStore";
-import { resolveContractSchema, type FunctionSpec } from "@/lib/contractAbiParser";
+import { resolveContractSchema, type FunctionSpec, type FunctionInputSpec } from "@/lib/contractAbiParser";
 import { createBindingsExportFromWorkspace, downloadBindingsFile } from "@/lib/bindingsGenerator";
 import type { InvocationDebugData } from "@/lib/invokeResult";
 import { CopyToClipboard } from "@/components/ide/CopyToClipboard";
+import { ComplexArgInput } from "@/components/ide/ComplexArgInput";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,45 @@ interface ContractPanelProps {
   lastInvocation?: InvocationDebugData | null;
 }
 
+// Serialize per-argument values into a JSON args string compatible with normalizeInvocationArgs
+function buildArgsJson(inputs: FunctionInputSpec[], argValues: Record<string, string>): string {
+  const values = inputs.map((input) => {
+    const raw = argValues[input.name] ?? "";
+    const coreType = input.type.endsWith(" | undefined")
+      ? input.type.slice(0, -" | undefined".length)
+      : input.type;
+
+    if (coreType.endsWith("[]") || coreType.startsWith("Map<") || coreType.startsWith("[")) {
+      if (!raw.trim()) return coreType.endsWith("[]") ? [] : {};
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return raw;
+      }
+    }
+
+    if (coreType === "bool") return raw === "true";
+
+    if (["u32", "i32"].includes(coreType)) {
+      const n = parseInt(raw, 10);
+      return Number.isNaN(n) ? 0 : n;
+    }
+
+    // i128/u128/i256/u256 and UDTs that are JSON objects
+    if (raw.trim().startsWith("{")) {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return raw;
+      }
+    }
+
+    return raw;
+  });
+
+  return JSON.stringify(values);
+}
+
 export function ContractPanel({ contractId, onInvoke, invokeState, lastInvocation = null }: ContractPanelProps) {
   const [fnName, setFnName] = useState("hello");
   const [args, setArgs] = useState('"Dev"');
@@ -44,6 +84,12 @@ export function ContractPanel({ contractId, onInvoke, invokeState, lastInvocatio
   const [schemaSource, setSchemaSource] = useState("");
   const [isSimulation, setIsSimulation] = useState(true);
   const [functions, setFunctions] = useState<FunctionSpec[]>([]);
+  const [argValues, setArgValues] = useState<Record<string, string>>({});
+  const [showRawJson, setShowRawJson] = useState(false);
+
+  const setArgValue = useCallback((name: string, value: string) => {
+    setArgValues((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
   const { identities, activeContext, setActiveContext, generateNewIdentity, deleteIdentity } = useIdentityStore();
   const { files, activeTabPath, horizonUrl, customRpcUrl, networkPassphrase, network } = useFileStore();
@@ -83,6 +129,10 @@ export function ContractPanel({ contractId, onInvoke, invokeState, lastInvocatio
           : `Parsed from ${result.source}`,
       );
       setFunctions(result.functions);
+      setArgValues({});
+      if (result.functions.length > 0) {
+        setFnName(result.functions[0].name);
+      }
       toast.success(`Parsed ${result.functions.length} contract function${result.functions.length === 1 ? "" : "s"}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to parse contract ABI";
@@ -264,6 +314,7 @@ export function ContractPanel({ contractId, onInvoke, invokeState, lastInvocatio
                   value={fnName}
                   onValueChange={(value) => {
                     setFnName(value);
+                    setArgValues({});
                     const fn = functions.find(f => f.name === value);
                     if (fn?.mutability === 'readonly') {
                       setIsSimulation(true);
@@ -293,14 +344,63 @@ export function ContractPanel({ contractId, onInvoke, invokeState, lastInvocatio
                   placeholder="function_name"
                 />
               )}
-              <label className="text-[10px] md:text-xs text-muted-foreground font-mono block">Arguments (JSON)</label>
-              <textarea
-                value={args}
-                onChange={(e) => setArgs(e.target.value)}
-                rows={2}
-                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                placeholder='["arg1", "arg2"]'
-              />
+              {(() => {
+                const selectedFn = functions.find((f) => f.name === fnName);
+                if (selectedFn && selectedFn.inputs.length > 0) {
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] md:text-xs text-muted-foreground font-mono">
+                          Arguments
+                        </label>
+                        <button
+                          onClick={() => setShowRawJson((v) => !v)}
+                          className="flex items-center gap-0.5 text-[9px] text-muted-foreground hover:text-foreground transition-colors"
+                          type="button"
+                        >
+                          {showRawJson ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                          {showRawJson ? "Hide raw JSON" : "Edit raw JSON"}
+                        </button>
+                      </div>
+                      {showRawJson ? (
+                        <textarea
+                          value={args}
+                          onChange={(e) => setArgs(e.target.value)}
+                          rows={3}
+                          className="w-full bg-muted border border-border rounded px-2 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                          placeholder='["arg1", "arg2"]'
+                        />
+                      ) : (
+                        <div className="space-y-2 border border-border/50 rounded-md p-2 bg-muted/20">
+                          {selectedFn.inputs.map((input) => (
+                            <ComplexArgInput
+                              key={input.name}
+                              label={input.name}
+                              type={input.type}
+                              value={argValues[input.name] ?? ""}
+                              onChange={(val) => setArgValue(input.name, val)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-1">
+                    <label className="text-[10px] md:text-xs text-muted-foreground font-mono block">
+                      Arguments (JSON)
+                    </label>
+                    <textarea
+                      value={args}
+                      onChange={(e) => setArgs(e.target.value)}
+                      rows={2}
+                      className="w-full bg-muted border border-border rounded px-2 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                      placeholder='["arg1", "arg2"]'
+                    />
+                  </div>
+                );
+              })()}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -315,7 +415,14 @@ export function ContractPanel({ contractId, onInvoke, invokeState, lastInvocatio
                 </label>
               </div>
               <button
-                onClick={() => onInvoke(fnName, args)}
+                onClick={() => {
+                  const selectedFn = functions.find((f) => f.name === fnName);
+                  const finalArgs =
+                    selectedFn && selectedFn.inputs.length > 0 && !showRawJson
+                      ? buildArgsJson(selectedFn.inputs, argValues)
+                      : args;
+                  onInvoke(fnName, finalArgs);
+                }}
                 disabled={!contractId || !activeContext || (invokeState?.phase && invokeState.phase !== "idle" && invokeState.phase !== "success" && invokeState.phase !== "failed")}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30 transition-colors"
               >

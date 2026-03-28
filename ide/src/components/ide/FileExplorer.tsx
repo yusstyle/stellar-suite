@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
+  Download,
   FileText,
   Folder,
   FolderOpen,
@@ -18,6 +19,7 @@ import {
   useWorkspaceStore,
   flattenWorkspaceFiles,
 } from "@/store/workspaceStore";
+import { exportWorkspaceAsZip } from "@/utils/exportZip";
 import { useCoverageStore } from "@/store/useCoverageStore";
 import { useVCSStore } from "@/store/vcsStore";
 import { type GitFileStatus } from "@/lib/vcs/gitService";
@@ -480,6 +482,17 @@ export function FileExplorer({ onFileSelect }: FileExplorerProps) {
             title="New folder"
           >
             <FolderPlus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const projectName = files[0]?.name ?? "workspace";
+              void exportWorkspaceAsZip(files, projectName);
+            }}
+            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            title="Export Project"
+          >
+            <Download className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>

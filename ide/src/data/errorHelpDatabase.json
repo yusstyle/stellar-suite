@@ -1,0 +1,132 @@
+{
+  "errors": {
+    "E0277": {
+      "title": "Trait Not Implemented",
+      "description": "This error occurs when you try to use a type that doesn't implement a required trait. Think of traits like contracts - if a function expects a type to have certain capabilities (methods), but your type doesn't provide them, Rust won't let you use it.",
+      "commonCauses": [
+        "Forgetting to derive or implement a trait on your struct or enum",
+        "Using a type in a generic context that doesn't meet the trait bounds",
+        "Missing trait imports from the Soroban SDK"
+      ],
+      "fixExample": "// Problem: Type doesn't implement required trait\nstruct MyData {\n    value: u32,\n}\n\n// Solution: Derive or implement the trait\n#[derive(Clone, Debug)]\nstruct MyData {\n    value: u32,\n}\n\n// For Soroban contracts, common traits:\n#[contracttype]\n#[derive(Clone, Debug, Eq, PartialEq)]\npub struct MyData {\n    value: u32,\n}",
+      "stellarDocs": "https://developers.stellar.org/docs/build/smart-contracts/getting-started/storing-data",
+      "rustDocs": "https://doc.rust-lang.org/error-index.html#E0277"
+    },
+    "E0425": {
+      "title": "Cannot Find Value",
+      "description": "Rust can't find the variable, function, or constant you're trying to use. This usually means it's not in scope, hasn't been imported, or has a typo in the name.",
+      "commonCauses": [
+        "Typo in the variable or function name",
+        "Missing import statement (use ...)",
+        "Variable declared in a different scope",
+        "Trying to use a Soroban SDK type without importing it"
+      ],
+      "fixExample": "// Problem: Missing import\nfn my_function(env: Env) {\n    let symbol = Symbol::new(&env, \"test\"); // Error!\n}\n\n// Solution: Import the type\nuse soroban_sdk::Symbol;\n\nfn my_function(env: Env) {\n    let symbol = Symbol::new(&env, \"test\"); // Works!\n}",
+      "stellarDocs": "https://developers.stellar.org/docs/build/smart-contracts/getting-started",
+      "rustDocs": "https://doc.rust-lang.org/error-index.html#E0425"
+    },
+    "E0308": {
+      "title": "Type Mismatch",
+      "description": "You're trying to use a value of one type where a different type is expected. Rust is strict about types - it won't automatically convert between them.",
+      "commonCauses": [
+        "Returning the wrong type from a function",
+        "Passing wrong argument types to a function",
+        "Mixing up similar types like u32 and i32",
+        "Forgetting to convert between Soroban types (e.g., String vs &str)"
+      ],
+      "fixExample": "// Problem: Wrong return type\nfn get_count() -> u32 {\n    \"42\" // Error: expected u32, found &str\n}\n\n// Solution: Return the correct type\nfn get_count() -> u32 {\n    42 // Correct!\n}\n\n// For Soroban String conversion:\nuse soroban_sdk::{Env, String};\n\nfn get_name(env: &Env) -> String {\n    String::from_str(env, \"Alice\") // Correct Soroban String\n}",
+      "stellarDocs": "https://developers.stellar.org/docs/build/smart-contracts/getting-started/storing-data",
+      "rustDocs": "https://doc.rust-lang.org/error-index.html#E0308"
+    },
+    "E0382": {
+      "title": "Use of Moved Value",
+      "description": "You're trying to use a value after it has been moved. In Rust, when you pass a value to a function or assign it to another variable, ownership transfers (moves) unless the type implements Copy.",
+      "commonCauses": [
+        "Using a value after passing it to a function",
+        "Using a value after moving it into a closure",
+        "Trying to use a value twice in different contexts",
+        "Not cloning when you need multiple uses"
+      ],
+      "fixExample": "// Problem: Value moved\nlet data = vec![1, 2, 3];\nprocess(data);\nprocess(data); // Error: data was moved!\n\n// Solution 1: Clone the value\nlet data = vec![1, 2, 3];\nprocess(data.clone());\nprocess(data); // Works!\n\n// Solution 2: Use references\nlet data = vec![1, 2, 3];\nprocess(&data);\nprocess(&data); // Works!\n\n// For Soroban: Most SDK types implement Clone\nlet symbol = Symbol::new(&env, \"key\");\nstorage.set(&symbol.clone(), &value1);\nstorage.set(&symbol, &value2); // Works!",
+      "stellarDocs": "https://developers.stellar.org/docs/build/smart-contracts/getting-started",
+      "rustDocs": "https://doc.rust-lang.org/error-index.html#E0382"
+    },
+    "E0599": {
+      "title": "Method Not Found",
+      "description": "You're trying to call a method that doesn't exist on the type, or the trait that provides the method isn't in scope.",
+      "commonCauses": [
+        "Typo in the method name",
+        "Missing trait import that provides the method",
+        "Calling a method on the wrong type",
+        "Method exists but requires a different receiver (self vs &self vs &mut self)"
+      ],
+      "fixExample": "// Problem: Missing trait import\nlet numbers = vec![1, 2, 3];\nlet sum = numbers.iter().sum(); // Error if Iterator trait not in scope\n\n// Solution: Import the trait\nuse std::iter::Iterator;\n\n// For Soroban storage:\nuse soroban_sdk::storage::Persistent;\n\nfn store_data(env: &Env, key: Symbol, value: u32) {\n    env.storage().persistent().set(&key, &value);\n}",
+      "stellarDocs": "https://developers.stellar.org/docs/build/smart-contracts/getting-started/storing-data",
+      "rustDocs": "https://doc.rust-lang.org/error-index.html#E0599"
+    },
+    "E0507": {
+      "title": "Cannot Move Out of Borrowed Content",
+      "description": "You're trying to move a value out of a reference, which isn't allowed because you don't own the data - you only borrowed it.",
+      "commonCauses": [
+        "Trying to take ownership of data from a reference",
+        "Moving fields out of a borrowed struct",
+        "Pattern matching on borrowed data without using ref"
+      ],
+      "fixExample": "// Problem: Moving from borrowed content\nfn process(data: &Vec<u32>) {\n    let first = data[0]; // Error if u32 doesn't implement Copy\n}\n\n// Solution: Clone or copy the value\nfn process(data: &Vec<u32>) {\n    let first = data[0].clone(); // Works!\n}\n\n// For Soroban:\nfn get_balance(env: &Env, addr: &Address) -> i128 {\n    env.storage()\n        .persistent()\n        .get::<Address, i128>(addr)\n        .unwrap_or(0)\n}",
+      "stellarDocs": "https://developers.stellar.org/docs/build/smart-contracts",
+      "rustDocs": "https://doc.rust-lang.org/error-index.html#E0507"
+    },
+    "SOROBAN_STATE_LIMIT": {
+      "title": "Contract State Size Limit Exceeded",
+      "description": "Soroban contracts have a 64KB limit on the total size of contract state. This error means your contract is trying to store more data than allowed.",
+      "commonCauses": [
+        "Storing large data structures in contract storage",
+        "Accumulating too many entries in a Map or Vec",
+        "Not cleaning up old data",
+        "Storing data that should be kept off-chain"
+      ],
+      "fixExample": "// Problem: Storing too much data\n#[contracttype]\npub struct LargeData {\n    items: Vec<String>, // Could grow beyond 64KB\n}\n\n// Solution 1: Use pagination and limits\n#[contracttype]\npub struct PaginatedData {\n    items: Vec<String>,\n}\n\nimpl Contract {\n    pub fn add_item(env: Env, item: String) -> Result<(), Error> {\n        let mut data: PaginatedData = env.storage()\n            .persistent()\n            .get(&symbol_short!(\"data\"))\n            .unwrap_or(PaginatedData { items: vec![&env] });\n        \n        if data.items.len() >= 100 {\n            return Err(Error::StorageFull);\n        }\n        \n        data.items.push_back(item);\n        env.storage().persistent().set(&symbol_short!(\"data\"), &data);\n        Ok(())\n    }\n}\n\n// Solution 2: Use separate storage entries\nimpl Contract {\n    pub fn set_user_balance(env: Env, user: Address, balance: i128) {\n        // Each user gets their own storage entry\n        env.storage().persistent().set(&user, &balance);\n    }\n}",
+      "stellarDocs": "https://developers.stellar.org/docs/build/smart-contracts/getting-started/storing-data#storage-limits",
+      "rustDocs": null
+    },
+    "SOROBAN_AUTH": {
+      "title": "Authorization Required",
+      "description": "Soroban contracts need explicit authorization for sensitive operations. This error means you're trying to perform an action that requires the user's permission.",
+      "commonCauses": [
+        "Missing require_auth() call",
+        "Calling require_auth() on the wrong address",
+        "Authorization not provided in the transaction",
+        "Trying to access another user's data without permission"
+      ],
+      "fixExample": "// Problem: Missing authorization\npub fn transfer(env: Env, from: Address, to: Address, amount: i128) {\n    // Missing auth check!\n    let balance = get_balance(&env, &from);\n    set_balance(&env, &from, balance - amount);\n    set_balance(&env, &to, get_balance(&env, &to) + amount);\n}\n\n// Solution: Add authorization\npub fn transfer(env: Env, from: Address, to: Address, amount: i128) {\n    // Require authorization from the sender\n    from.require_auth();\n    \n    let balance = get_balance(&env, &from);\n    set_balance(&env, &from, balance - amount);\n    set_balance(&env, &to, get_balance(&env, &to) + amount);\n}",
+      "stellarDocs": "https://developers.stellar.org/docs/build/smart-contracts/getting-started/auth",
+      "rustDocs": null
+    },
+    "SOROBAN_PANIC": {
+      "title": "Contract Panic",
+      "description": "Your contract panicked during execution. Panics stop execution immediately and revert all changes. Use Result types for recoverable errors instead.",
+      "commonCauses": [
+        "Using unwrap() on None or Err values",
+        "Array index out of bounds",
+        "Integer overflow in debug mode",
+        "Explicit panic!() calls"
+      ],
+      "fixExample": "// Problem: Using unwrap() can panic\npub fn get_admin(env: Env) -> Address {\n    env.storage()\n        .persistent()\n        .get(&symbol_short!(\"admin\"))\n        .unwrap() // Panics if admin not set!\n}\n\n// Solution 1: Use Result type\npub fn get_admin(env: Env) -> Result<Address, Error> {\n    env.storage()\n        .persistent()\n        .get(&symbol_short!(\"admin\"))\n        .ok_or(Error::AdminNotSet)\n}\n\n// Solution 2: Provide a default\npub fn get_admin(env: Env) -> Address {\n    env.storage()\n        .persistent()\n        .get(&symbol_short!(\"admin\"))\n        .unwrap_or_else(|| env.current_contract_address())\n}",
+      "stellarDocs": "https://developers.stellar.org/docs/build/smart-contracts/getting-started/errors",
+      "rustDocs": null
+    },
+    "SOROBAN_OVERFLOW": {
+      "title": "Integer Overflow",
+      "description": "An arithmetic operation resulted in a value too large or too small for the integer type. Soroban contracts should use checked arithmetic to prevent this.",
+      "commonCauses": [
+        "Adding or multiplying large numbers without checks",
+        "Subtracting a larger number from a smaller one (underflow)",
+        "Not using checked_add, checked_sub, etc.",
+        "Token amounts exceeding i128 limits"
+      ],
+      "fixExample": "// Problem: Unchecked arithmetic\npub fn add_balance(env: Env, user: Address, amount: i128) {\n    let balance = get_balance(&env, &user);\n    let new_balance = balance + amount; // Could overflow!\n    set_balance(&env, &user, new_balance);\n}\n\n// Solution: Use checked arithmetic\npub fn add_balance(env: Env, user: Address, amount: i128) -> Result<(), Error> {\n    let balance = get_balance(&env, &user);\n    let new_balance = balance\n        .checked_add(amount)\n        .ok_or(Error::Overflow)?;\n    set_balance(&env, &user, new_balance);\n    Ok(())\n}\n\n// Or use saturating arithmetic if appropriate\npub fn add_balance(env: Env, user: Address, amount: i128) {\n    let balance = get_balance(&env, &user);\n    let new_balance = balance.saturating_add(amount);\n    set_balance(&env, &user, new_balance);\n}",
+      "stellarDocs": "https://developers.stellar.org/docs/build/smart-contracts/example-contracts/tokens",
+      "rustDocs": null
+    }
+  }
+}

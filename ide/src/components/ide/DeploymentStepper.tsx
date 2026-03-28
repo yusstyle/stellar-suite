@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   XCircle,
   Rocket,
+  Copy,
+  RefreshCw,
 } from "lucide-react";
 import {
   Dialog,
@@ -67,7 +69,13 @@ interface DeploymentStepperProps {
   open: boolean;
   step: DeploymentStep;
   error: string | null;
+  /** The deployed contract ID shown on success. */
+  contractId?: string | null;
+  /** WASM hash retained after upload — enables retry-instantiate without re-upload. */
+  pendingWasmHash?: string | null;
   onClose: () => void;
+  /** Called when the user wants to retry only the instantiation step. */
+  onRetryInstantiate?: () => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -76,10 +84,22 @@ export function DeploymentStepper({
   open,
   step,
   error,
+  contractId,
+  pendingWasmHash,
   onClose,
+  onRetryInstantiate,
 }: DeploymentStepperProps) {
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCopyContractId = () => {
+    if (!contractId) return;
+    void navigator.clipboard.writeText(contractId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   // Start / clear the 20-second RPC timeout warning
   useEffect(() => {
@@ -181,19 +201,58 @@ export function DeploymentStepper({
 
         {/* ── Success banner ────────────────────────────────────────── */}
         {step === "success" && (
-          <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 flex items-center gap-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-            <p className="text-xs text-emerald-400 font-mono">
-              Contract deployed successfully!
-            </p>
+          <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 space-y-2">
+            <div className="flex items-center gap-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+              <p className="text-xs text-emerald-400 font-mono">
+                Contract deployed successfully!
+              </p>
+            </div>
+            {contractId && (
+              <div className="flex items-center gap-2 rounded-md bg-primary/5 border border-primary/20 px-3 py-2">
+                <code className="flex-1 text-[11px] font-mono text-primary truncate" title={contractId}>
+                  {contractId}
+                </code>
+                <button
+                  onClick={handleCopyContractId}
+                  aria-label="Copy contract ID"
+                  className="shrink-0 p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+                {copied && (
+                  <span className="text-[10px] text-emerald-400 font-mono animate-in fade-in duration-150">
+                    Copied!
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* ── Error banner ──────────────────────────────────────────── */}
         {step === "error" && error && (
-          <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 flex items-start gap-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
-            <XCircle className="h-4 w-4 text-destructive shrink-0 mt-px" />
-            <p className="text-xs text-destructive font-mono break-all">{error}</p>
+          <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 space-y-2">
+            <div className="flex items-start gap-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
+              <XCircle className="h-4 w-4 text-destructive shrink-0 mt-px" />
+              <p className="text-xs text-destructive font-mono break-all">{error}</p>
+            </div>
+            {/* Retry instantiation if WASM was already uploaded */}
+            {pendingWasmHash && onRetryInstantiate && (
+              <div className="flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+                <span className="text-[10px] text-amber-300 font-mono flex-1">
+                  WASM was uploaded successfully. You can retry contract instantiation without re-uploading.
+                </span>
+                <button
+                  onClick={onRetryInstantiate}
+                  className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-amber-300 hover:text-amber-200 transition-colors"
+                  aria-label="Retry instantiation"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
         )}
 

@@ -28,7 +28,8 @@ export type SidebarTab =
   | "search"
   | "security"
   | "tests"
-  | "outline";
+  | "outline"
+  | "inspector";
 export type BuildState = "idle" | "building" | "success" | "error";
 
 export interface WorkspaceTextFile {

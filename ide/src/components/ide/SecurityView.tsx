@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Bug, Loader2, RefreshCcw, ShieldAlert, Sparkles, Wrench } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { SSHKeyManager } from "@/components/settings/SSHKeyManager";
 import type { CargoAuditFinding } from "@/utils/cargoAuditParser";
 import type { ClippyCategory, ClippyLint } from "@/utils/clippyParser";
 
@@ -67,6 +68,8 @@ export function SecurityView({
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-3">
+        <SSHKeyManager />
+
         <section className="space-y-2 rounded-md border border-border bg-card/60 p-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">

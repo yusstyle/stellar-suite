@@ -1,6 +1,8 @@
 extension/node_modules/
 extension/out/
 extension/out-test/
+out/
+out-test/
 .vscode-test/
 *.vsix
 .DS_Store
