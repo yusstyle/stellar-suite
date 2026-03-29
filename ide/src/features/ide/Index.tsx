@@ -57,6 +57,7 @@ import { useDeploymentStore } from "@/store/useDeploymentStore";
 import { useDiagnosticsStore } from "@/store/useDiagnosticsStore";
 import { useIdentityStore } from "@/store/useIdentityStore";
 import { useWorkspaceStore, flattenWorkspaceFiles } from "@/store/workspaceStore";
+import { useSharedEnvironmentStore } from "@/store/useSharedEnvironmentStore";
 import { useVCSStore } from "@/store/vcsStore";
 import { useErrorHelpStore } from "@/store/useErrorHelpStore";
 import ErrorHelpPanel from "@/components/ide/ErrorHelpPanel";
@@ -219,6 +220,7 @@ export default function Index() {
   const { activeContext, activeIdentity, loadIdentities } = useIdentityStore();
   const { localRepoInitialized, hydrateLocalRepo, refreshLocalStatuses } =
     useVCSStore();
+  const sharedEnvConfig = useSharedEnvironmentStore((s) => s.config);
   const { setDiagnostics, clearDiagnostics } = useDiagnosticsStore();
   const { addContract } = useDeployedContractsStore();
   const { isOpen: isErrorHelpOpen, errorCode, closeErrorHelp } = useErrorHelpStore();
@@ -249,6 +251,14 @@ export default function Index() {
       setWizardOpen(true);
     }
   }, [files.length]);
+
+  // Propagate shared/workspace environment settings to the personal store
+  // once the workspace store has finished rehydrating from IndexedDB.
+  useEffect(() => {
+    if (!hydrationComplete) return;
+    if (!sharedEnvConfig.enabled) return;
+    if (sharedEnvConfig.network) setNetwork(sharedEnvConfig.network);
+  }, [hydrationComplete, sharedEnvConfig.enabled, sharedEnvConfig.network, setNetwork]);
 
   const [invokeState, setInvokeState] = useState<{
     phase: "idle" | "preparing" | "success" | "failed";

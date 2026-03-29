@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MathSafetySettings from './MathSafetySettings';
 import RustfmtEditor from '../settings/RustfmtEditor';
+import SharedEnvironmentSettings from './SharedEnvironmentSettings';
 
 const SettingsPanel: React.FC = () => {
   return (
@@ -51,17 +52,7 @@ const SettingsPanel: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="network" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Network Settings</CardTitle>
-                <CardDescription>
-                  Configure Stellar network connections
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Network settings coming soon...</p>
-              </CardContent>
-            </Card>
+            <SharedEnvironmentSettings />
           </TabsContent>
           
           <TabsContent value="editor" className="space-y-4">
